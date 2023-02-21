@@ -149,8 +149,7 @@ static const int pseudo_filesystems[] = {
 	CGROUP_SUPER_MAGIC,
 	CGROUP2_SUPER_MAGIC,
 	NSFS_MAGIC,
-	EFIVARFS_MAGIC,
-	TSEMFS_MAGIC
+	EFIVARFS_MAGIC
 };
 
 static bool bypass_inode(struct inode *inode)
