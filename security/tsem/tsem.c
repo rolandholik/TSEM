@@ -421,7 +421,7 @@ static int tsem_task_alloc(struct task_struct *new, unsigned long flags)
 		return 0;
 
 	if (new_task->context->id)
-		tsem_ns_get(new_task->context);
+		kref_get(&new_task->context->kref);
 	return 0;
 }
 
@@ -1792,10 +1792,6 @@ static int __init tsem_init(void)
 	       sizeof(tsem_root_actions));
 
 	retn = tsem_event_cache_init();
-	if (retn)
-		return retn;
-
-	retn = tsem_ns_init();
 	if (retn)
 		return retn;
 
