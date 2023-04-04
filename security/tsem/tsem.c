@@ -1680,7 +1680,6 @@ static struct security_hook_list tsem_hooks[] __ro_after_init = {
 	LSM_HOOK_INIT(file_fcntl, tsem_file_fcntl),
 	LSM_HOOK_INIT(file_receive, tsem_file_receive),
 
-#ifdef CONFIG_SECURITY_NETWORK
 	LSM_HOOK_INIT(unix_stream_connect, tsem_unix_stream_connect),
 	LSM_HOOK_INIT(unix_may_send, tsem_unix_may_send),
 
@@ -1696,7 +1695,6 @@ static struct security_hook_list tsem_hooks[] __ro_after_init = {
 	LSM_HOOK_INIT(socket_getpeername, tsem_socket_getpeername),
 	LSM_HOOK_INIT(socket_setsockopt, tsem_socket_setsockopt),
 	LSM_HOOK_INIT(socket_shutdown, tsem_socket_shutdown),
-#endif
 
 	LSM_HOOK_INIT(kernel_module_request, tsem_kernel_module_request),
 	LSM_HOOK_INIT(kernel_load_data, tsem_kernel_load_data),
