@@ -204,8 +204,7 @@ static bool bypass_inode(struct inode *inode)
 	return retn;
 }
 
-static int event_action(struct tsem_TMA_context *ctx,
-			enum tsem_event_type event)
+static int event_action(struct tsem_context *ctx, enum tsem_event_type event)
 {
 	int retn = 0;
 
@@ -221,7 +220,7 @@ static int event_action(struct tsem_TMA_context *ctx,
 static int return_trapped_task(enum tsem_event_type event, char *msg)
 {
 	int retn;
-	struct tsem_TMA_context *ctx = tsem_context(current);
+	struct tsem_context *ctx = tsem_context(current);
 
 	pr_warn("Untrusted %s: comm=%s, pid=%d, parameters='%s'\n",
 		tsem_names[event], current->comm, task_pid_nr(current), msg);
@@ -255,7 +254,7 @@ static int return_trapped_inode(enum tsem_event_type event,
 static int model_event(struct tsem_event *ep)
 {
 	int retn;
-	struct tsem_TMA_context *ctx = tsem_context(current);
+	struct tsem_context *ctx = tsem_context(current);
 
 	if (!ctx->id && no_root_modeling)
 		return 0;
@@ -450,7 +449,7 @@ static int tsem_task_alloc(struct task_struct *new, unsigned long flags)
 
 static void tsem_task_free(struct task_struct *task)
 {
-	struct tsem_TMA_context *ctx = tsem_context(task);
+	struct tsem_context *ctx = tsem_context(task);
 
 	if (!ctx->id)
 		return;
@@ -463,8 +462,8 @@ static int tsem_task_kill(struct task_struct *target,
 {
 	int retn = 0;
 	char msg[TRAPPED_MSG_LENGTH];
-	struct tsem_TMA_context *src_ctx = tsem_context(current);
-	struct tsem_TMA_context *tgt_ctx = tsem_context(target);
+	struct tsem_context *src_ctx = tsem_context(current);
+	struct tsem_context *tgt_ctx = tsem_context(target);
 
 	if (tsem_task_untrusted(current)) {
 		snprintf(msg, sizeof(msg),
@@ -510,7 +509,7 @@ static int tsem_ptrace_traceme(struct task_struct *parent)
 static int tsem_task_setpgid(struct task_struct *p, pid_t pgid)
 {
 	char msg[TRAPPED_MSG_LENGTH];
-	struct tsem_TMA_context *ctx = tsem_context(current);
+	struct tsem_context *ctx = tsem_context(current);
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "target=%s", p->comm);
