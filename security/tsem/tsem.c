@@ -1888,6 +1888,7 @@ static int __init tsem_init(void)
 	int retn;
 	struct tsem_task *tsk = tsem_task(current);
 	struct tsem_context *ctx = &root_context;
+	struct tsem_model *model = &root_model;
 
 	security_add_hooks(tsem_hooks, ARRAY_SIZE(tsem_hooks), &tsem_lsmid);
 
@@ -1901,7 +1902,7 @@ static int __init tsem_init(void)
 	if (retn)
 		return retn;
 
-	retn = tsem_model_cache_init();
+	retn = tsem_model_cache_init(model);
 	if (retn)
 		goto done;
 
@@ -1921,8 +1922,10 @@ static int __init tsem_init(void)
 	retn = 0;
 
  done:
-	if (retn)
+	if (retn) {
 		tsem_event_magazine_free(ctx);
+		tsem_model_magazine_free(model);
+	}
 	return retn;
 }
 
