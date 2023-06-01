@@ -235,7 +235,8 @@ static int event_action(struct tsem_context *ctx, enum tsem_event_type event)
 	return retn;
 }
 
-static int return_trapped_task(enum tsem_event_type event, char *msg)
+static int return_trapped_task(enum tsem_event_type event, char *msg,
+			       bool locked)
 {
 	int retn;
 	struct tsem_context *ctx = tsem_context(current);
@@ -244,7 +245,7 @@ static int return_trapped_task(enum tsem_event_type event, char *msg)
 		tsem_names[event], current->comm, task_pid_nr(current), msg);
 
 	if (ctx->external) {
-		retn = tsem_export_action(event);
+		retn = tsem_export_action(event, locked);
 		if (retn)
 			return retn;
 	}
@@ -253,7 +254,8 @@ static int return_trapped_task(enum tsem_event_type event, char *msg)
 }
 
 static int return_trapped_inode(enum tsem_event_type event,
-				struct inode *inode, char *inode_msg)
+				struct inode *inode, char *inode_msg,
+				bool locked)
 {
 	const char *dname;
 	char msg[TRAPPED_MSG_LENGTH];
@@ -266,7 +268,7 @@ static int return_trapped_inode(enum tsem_event_type event,
 		dname = dird->d_name.name;
 	scnprintf(msg, sizeof(msg), "parent=%s, %s", dname, inode_msg);
 
-	return return_trapped_task(event, msg);
+	return return_trapped_task(event, msg, locked);
 }
 
 static int model_event(struct tsem_event *ep)
@@ -325,7 +327,7 @@ static int tsem_file_open(struct file *file)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "filename=%s, flags=0x%x",
 			 file->f_path.dentry->d_name.name, file->f_flags);
-		return return_trapped_task(TSEM_FILE_OPEN, msg);
+		return return_trapped_task(TSEM_FILE_OPEN, msg, false);
 	}
 
 	if (bypass_inode(inode))
@@ -368,7 +370,7 @@ static int tsem_mmap_file(struct file *file, unsigned long reqprot,
 		scnprintf(msg, sizeof(msg),
 			  "filename=%s, rprot=0x%lx, prot=0x%lx, flags=0x%lx",
 			  p, reqprot, prot, flags);
-		return return_trapped_task(TSEM_MMAP_FILE, msg);
+		return return_trapped_task(TSEM_MMAP_FILE, msg, false);
 	}
 
 	if (!file && !(prot & PROT_EXEC))
@@ -406,7 +408,7 @@ static int tsem_file_ioctl(struct file *file, unsigned int cmd,
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "name=%s, cmd=%u",
 			  file->f_path.dentry->d_name.name, cmd);
-		return return_trapped_task(TSEM_FILE_IOCTL, msg);
+		return return_trapped_task(TSEM_FILE_IOCTL, msg, false);
 	}
 
 	if (bypass_inode(file_inode(file)))
@@ -422,7 +424,7 @@ static int tsem_file_lock(struct file *file, unsigned int cmd)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "name=%s, cmd=%u",
 			  file->f_path.dentry->d_name.name, cmd);
-		return return_trapped_task(TSEM_FILE_LOCK, msg);
+		return return_trapped_task(TSEM_FILE_LOCK, msg, false);
 	}
 
 	return model_generic_event(TSEM_FILE_LOCK, false);
@@ -439,7 +441,7 @@ static int tsem_file_fcntl(struct file *file, unsigned int cmd,
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "name=%s, cmd=%u",
 			  file->f_path.dentry->d_name.name, cmd);
-		return return_trapped_task(TSEM_FILE_FCNTL, msg);
+		return return_trapped_task(TSEM_FILE_FCNTL, msg, false);
 	}
 
 	if (bypass_inode(file_inode(file)))
@@ -455,7 +457,7 @@ static int tsem_file_receive(struct file *file)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "name=%s, flags=%u",
 			  file->f_path.dentry->d_name.name, file->f_flags);
-		return return_trapped_task(TSEM_FILE_RECEIVE, msg);
+		return return_trapped_task(TSEM_FILE_RECEIVE, msg, false);
 	}
 
 	return model_generic_event(TSEM_FILE_RECEIVE, false);
@@ -503,7 +505,7 @@ static int tsem_task_kill(struct task_struct *target,
 		snprintf(msg, sizeof(msg),
 			 "target=%s, pid=%d, signal=%d", target->comm,
 			 task_pid_nr(target), sig);
-		return return_trapped_task(TSEM_TASK_KILL, msg);
+		return return_trapped_task(TSEM_TASK_KILL, msg, true);
 	}
 
 	if (SI_FROMKERNEL(info))
@@ -538,20 +540,12 @@ static int tsem_ptrace_traceme(struct task_struct *parent)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "parent=%s", parent->comm);
-		return return_trapped_task(TSEM_PTRACE_TRACEME, msg);
+		return return_trapped_task(TSEM_PTRACE_TRACEME, msg, false);
 	}
 
 	return model_generic_event(TSEM_PTRACE_TRACEME, false);
 }
 
-/*
- * The best that can be done with respect to modeling this security
- * event is to trap an attempt by an untrusted task to exercise the
- * functionality.  This is secondary to the fact that the invocation
- * point for this hook holds the global tasklist lock, causing both
- * internal and external modeling to deadlock, given that both methods
- * can cause current task to be scheduled away.
- */
 static int tsem_task_setpgid(struct task_struct *p, pid_t pgid)
 {
 	char msg[TRAPPED_MSG_LENGTH];
@@ -574,7 +568,7 @@ static int tsem_task_getpgid(struct task_struct *p)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "target=%s", p->comm);
-		return return_trapped_task(TSEM_TASK_GETPGID, msg);
+		return return_trapped_task(TSEM_TASK_GETPGID, msg, false);
 	}
 
 	return model_generic_event(TSEM_TASK_GETPGID, false);
@@ -586,7 +580,7 @@ static int tsem_task_getsid(struct task_struct *p)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "target=%s", p->comm);
-		return return_trapped_task(TSEM_TASK_GETSID, msg);
+		return return_trapped_task(TSEM_TASK_GETSID, msg, false);
 	}
 
 	return model_generic_event(TSEM_TASK_GETSID, false);
@@ -599,7 +593,7 @@ static int tsem_task_setnice(struct task_struct *p, int nice)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "target=%s, nice=%d",
 			  p->comm, nice);
-		return return_trapped_task(TSEM_TASK_SETNICE, msg);
+		return return_trapped_task(TSEM_TASK_SETNICE, msg, false);
 	}
 
 	return model_generic_event(TSEM_TASK_SETNICE, false);
@@ -612,7 +606,7 @@ static int tsem_task_setioprio(struct task_struct *p, int ioprio)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "target=%s, ioprio=%d",
 			  p->comm, ioprio);
-		return return_trapped_task(TSEM_TASK_SETIOPRIO, msg);
+		return return_trapped_task(TSEM_TASK_SETIOPRIO, msg, false);
 	}
 
 	return model_generic_event(TSEM_TASK_SETIOPRIO, false);
@@ -624,7 +618,7 @@ static int tsem_task_getioprio(struct task_struct *p)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "target=%s", p->comm);
-		return return_trapped_task(TSEM_TASK_GETIOPRIO, msg);
+		return return_trapped_task(TSEM_TASK_GETIOPRIO, msg, false);
 	}
 
 	return model_generic_event(TSEM_TASK_GETIOPRIO, false);
@@ -642,17 +636,12 @@ static int tsem_task_prlimit(const struct cred *cred, const struct cred *tcred,
 			  from_kgid(&init_user_ns, tcred->gid),
 			  from_kuid(&init_user_ns, tcred->euid),
 			  from_kgid(&init_user_ns, tcred->egid), flags);
-		return return_trapped_task(TSEM_TASK_PRLIMIT, msg);
+		return return_trapped_task(TSEM_TASK_PRLIMIT, msg, true);
 	}
 
 	return model_generic_event(TSEM_TASK_PRLIMIT, true);
 }
 
-/*
- * See the comment above tsem_task_setrlimit for possible issues.
- * Currently this security event hook has been tested safe but
- * consideration should be given to global tasklist locking.
- */
 static int tsem_task_setrlimit(struct task_struct *p, unsigned int resource,
 			       struct rlimit *new_rlim)
 {
@@ -663,7 +652,7 @@ static int tsem_task_setrlimit(struct task_struct *p, unsigned int resource,
 			  "target=%s, res=%u, cur=%lu, max=%lu",
 			  p->comm, resource, new_rlim->rlim_cur,
 			  new_rlim->rlim_max);
-		return return_trapped_task(TSEM_TASK_SETRLIMIT, msg);
+		return return_trapped_task(TSEM_TASK_SETRLIMIT, msg, true);
 	}
 
 	return model_generic_event(TSEM_TASK_SETRLIMIT, true);
@@ -675,7 +664,7 @@ static int tsem_task_setscheduler(struct task_struct *p)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "target=%s", p->comm);
-		return return_trapped_task(TSEM_TASK_SETSCHEDULER, msg);
+		return return_trapped_task(TSEM_TASK_SETSCHEDULER, msg, true);
 	}
 
 	return model_generic_event(TSEM_TASK_SETSCHEDULER, true);
@@ -687,7 +676,7 @@ static int tsem_task_getscheduler(struct task_struct *p)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "target=%s", p->comm);
-		return return_trapped_task(TSEM_TASK_GETSCHEDULER, msg);
+		return return_trapped_task(TSEM_TASK_GETSCHEDULER, msg, true);
 	}
 
 	return model_generic_event(TSEM_TASK_GETSCHEDULER, true);
@@ -700,7 +689,7 @@ static int tsem_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "option=%d", option);
-		return return_trapped_task(TSEM_TASK_PRCTL, msg);
+		return return_trapped_task(TSEM_TASK_PRCTL, msg, true);
 	}
 
 	return model_generic_event(TSEM_TASK_PRCTL, true);
@@ -749,7 +738,8 @@ static int tsem_unix_stream_connect(struct sock *sock, struct sock *other,
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "family=%u/%u, ",
 			  sock->sk_family, other->sk_family);
-		return return_trapped_task(TSEM_UNIX_STREAM_CONNECT, msg);
+		return return_trapped_task(TSEM_UNIX_STREAM_CONNECT, msg,
+					   true);
 	}
 
 	return model_generic_event(TSEM_UNIX_STREAM_CONNECT, true);
@@ -763,7 +753,7 @@ static int tsem_unix_may_send(struct socket *sock, struct socket *other)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "family=%u, type=%u",
 			  sk->sk_family, sock->type);
-		return return_trapped_task(TSEM_UNIX_MAY_SEND, msg);
+		return return_trapped_task(TSEM_UNIX_MAY_SEND, msg, true);
 	}
 
 	return model_generic_event(TSEM_UNIX_MAY_SEND, true);
@@ -784,7 +774,7 @@ static int tsem_socket_create(int family, int type, int protocol, int kern)
 		scnprintf(msg, sizeof(msg),
 			  "family=%d, type=%d, protocol=%d, kern=%d", family,
 			  type, protocol, kern);
-		return return_trapped_task(TSEM_SOCKET_CREATE, msg);
+		return return_trapped_task(TSEM_SOCKET_CREATE, msg, false);
 	}
 
 	args.family = family;
@@ -818,7 +808,7 @@ static int tsem_socket_connect(struct socket *sock, struct sockaddr *addr,
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "family=%u", addr->sa_family);
-		return return_trapped_task(TSEM_SOCKET_CONNECT, msg);
+		return return_trapped_task(TSEM_SOCKET_CONNECT, msg, false);
 	}
 
 	args.tsip = tsem_inode(SOCK_INODE(sock));
@@ -852,7 +842,7 @@ static int tsem_socket_bind(struct socket *sock, struct sockaddr *addr,
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "family=%u", addr->sa_family);
-		return return_trapped_task(TSEM_SOCKET_BIND, msg);
+		return return_trapped_task(TSEM_SOCKET_BIND, msg, false);
 	}
 
 	args.tsip = tsem_inode(SOCK_INODE(sock));
@@ -886,7 +876,7 @@ static int tsem_socket_accept(struct socket *sock, struct socket *newsock)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "family=%u", sk->sk_family);
-		return return_trapped_task(TSEM_SOCKET_ACCEPT, msg);
+		return return_trapped_task(TSEM_SOCKET_ACCEPT, msg, false);
 	}
 
 	args.family = sk->sk_family;
@@ -923,7 +913,7 @@ static int tsem_socket_listen(struct socket *sock, int backlog)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "family=%u, type=%u, port=%u",
 			  sk->sk_family, sock->type, sk->sk_num);
-		return return_trapped_task(TSEM_SOCKET_LISTEN, msg);
+		return return_trapped_task(TSEM_SOCKET_LISTEN, msg, false);
 	}
 
 	return model_generic_event(TSEM_SOCKET_LISTEN, false);
@@ -937,7 +927,7 @@ static int tsem_socket_socketpair(struct socket *socka, struct socket *sockb)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "family a=%u, family b=%u",
 			  ska->sk_family, skb->sk_family);
-		return return_trapped_task(TSEM_SOCKET_SOCKETPAIR, msg);
+		return return_trapped_task(TSEM_SOCKET_SOCKETPAIR, msg, false);
 	}
 
 	return model_generic_event(TSEM_SOCKET_SOCKETPAIR, false);
@@ -952,7 +942,7 @@ static int tsem_socket_sendmsg(struct socket *sock, struct msghdr *msgmsg,
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "family=%u, size=%d",
 			  sk->sk_family, size);
-		return return_trapped_task(TSEM_SOCKET_SENDMSG, msg);
+		return return_trapped_task(TSEM_SOCKET_SENDMSG, msg, false);
 	}
 
 	return model_generic_event(TSEM_SOCKET_SENDMSG, false);
@@ -967,7 +957,7 @@ static int tsem_socket_recvmsg(struct socket *sock, struct msghdr *msgmsg,
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "family=%u, size=%d, flags=%d",
 			  sk->sk_family, size, flags);
-		return return_trapped_task(TSEM_SOCKET_RECVMSG, msg);
+		return return_trapped_task(TSEM_SOCKET_RECVMSG, msg, false);
 	}
 
 	return model_generic_event(TSEM_SOCKET_RECVMSG, false);
@@ -980,7 +970,8 @@ static int tsem_socket_getsockname(struct socket *sock)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "family=%u", sk->sk_family);
-		return return_trapped_task(TSEM_SOCKET_GETSOCKNAME, msg);
+		return return_trapped_task(TSEM_SOCKET_GETSOCKNAME, msg,
+					   false);
 	}
 
 	return model_generic_event(TSEM_SOCKET_GETSOCKNAME, false);
@@ -993,7 +984,8 @@ static int tsem_socket_getpeername(struct socket *sock)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "family=%u", sk->sk_family);
-		return return_trapped_task(TSEM_SOCKET_GETPEERNAME, msg);
+		return return_trapped_task(TSEM_SOCKET_GETPEERNAME, msg,
+					   false);
 	}
 
 	return model_generic_event(TSEM_SOCKET_GETPEERNAME, false);
@@ -1007,7 +999,7 @@ static int tsem_socket_setsockopt(struct socket *sock, int level, int optname)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "family=%u, level=%d, optname=%d",
 			  sk->sk_family, level, optname);
-		return return_trapped_task(TSEM_SOCKET_SETSOCKOPT, msg);
+		return return_trapped_task(TSEM_SOCKET_SETSOCKOPT, msg, false);
 	}
 
 	return model_generic_event(TSEM_SOCKET_SETSOCKOPT, false);
@@ -1021,7 +1013,7 @@ static int tsem_socket_shutdown(struct socket *sock, int how)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "family=%u, how=%d",
 			  sk->sk_family, how);
-		return return_trapped_task(TSEM_SOCKET_SHUTDOWN, msg);
+		return return_trapped_task(TSEM_SOCKET_SHUTDOWN, msg, false);
 	}
 
 	return model_generic_event(TSEM_SOCKET_SHUTDOWN, false);
@@ -1036,7 +1028,8 @@ static int tsem_kernel_module_request(char *kmod_name)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "module=%s", kmod_name);
-		return return_trapped_task(TSEM_KERNEL_MODULE_REQUEST, msg);
+		return return_trapped_task(TSEM_KERNEL_MODULE_REQUEST, msg,
+					   false);
 	}
 
 	return model_generic_event(TSEM_KERNEL_MODULE_REQUEST, false);
@@ -1049,7 +1042,7 @@ static int tsem_kernel_load_data(enum kernel_load_data_id id, bool contents)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "id=%d, contents=%d", id,
 			  contents);
-		return return_trapped_task(TSEM_KERNEL_LOAD_DATA, msg);
+		return return_trapped_task(TSEM_KERNEL_LOAD_DATA, msg, false);
 	}
 
 	return model_generic_event(TSEM_KERNEL_LOAD_DATA, false);
@@ -1065,7 +1058,7 @@ static int tsem_kernel_read_file(struct file *file,
 			  "filename=%s, flags=0x%x, id=%d, contents=%d",
 			  file->f_path.dentry->d_name.name, file->f_flags,
 			  id, contents);
-		return return_trapped_task(TSEM_KERNEL_READ_FILE, msg);
+		return return_trapped_task(TSEM_KERNEL_READ_FILE, msg, false);
 	}
 
 	return model_generic_event(TSEM_KERNEL_READ_FILE, false);
@@ -1082,7 +1075,7 @@ static int tsem_sb_mount(const char *dev_name, const struct path *path,
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "device=%s, type=%s, flags=%lu",
 			  dev_name, type, flags);
-		return return_trapped_task(TSEM_SB_MOUNT, msg);
+		return return_trapped_task(TSEM_SB_MOUNT, msg, false);
 	}
 
 	return model_generic_event(TSEM_SB_MOUNT, false);
@@ -1095,7 +1088,7 @@ static	int tsem_sb_umount(struct vfsmount *mnt, int flags)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "root=%s, flags=%d",
 			  mnt->mnt_root->d_name.name, flags);
-		return return_trapped_task(TSEM_SB_UMOUNT, msg);
+		return return_trapped_task(TSEM_SB_UMOUNT, msg, false);
 	}
 
 	return model_generic_event(TSEM_SB_UMOUNT, false);
@@ -1111,7 +1104,7 @@ static int tsem_sb_remount(struct super_block *sb, void *mnt_opts)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "fstype=%s, type=%s",
 			  sb->s_type->name, sb->s_root->d_name.name);
-		return return_trapped_task(TSEM_SB_REMOUNT, msg);
+		return return_trapped_task(TSEM_SB_REMOUNT, msg, false);
 	}
 
 	return model_generic_event(TSEM_SB_REMOUNT, false);
@@ -1126,7 +1119,7 @@ static int tsem_sb_pivotroot(const struct path *old_path,
 		scnprintf(msg, sizeof(msg), "%s -> %s",
 			  old_path->dentry->d_name.name,
 			  new_path->dentry->d_name.name);
-		return return_trapped_task(TSEM_SB_PIVOTROOT, msg);
+		return return_trapped_task(TSEM_SB_PIVOTROOT, msg, false);
 	}
 
 	return model_generic_event(TSEM_SB_PIVOTROOT, false);
@@ -1138,7 +1131,7 @@ static int tsem_sb_statfs(struct dentry *dentry)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "name=%s", dentry->d_name.name);
-		return return_trapped_task(TSEM_SB_STATFS, msg);
+		return return_trapped_task(TSEM_SB_STATFS, msg, false);
 	}
 
 	return model_generic_event(TSEM_SB_STATFS, false);
@@ -1153,7 +1146,7 @@ static int tsem_move_mount(const struct path *from_path,
 		scnprintf(msg, sizeof(msg), "%s -> %s",
 			  from_path->dentry->d_name.name,
 			  to_path->dentry->d_name.name);
-		return return_trapped_task(TSEM_MOVE_MOUNT, msg);
+		return return_trapped_task(TSEM_MOVE_MOUNT, msg, false);
 	}
 
 	return model_generic_event(TSEM_MOVE_MOUNT, false);
@@ -1166,7 +1159,7 @@ static int tsem_shm_associate(struct kern_ipc_perm *perm, int shmflg)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "id=%d, mode=%u, flags=%d",
 			  perm->id, perm->mode, shmflg);
-		return return_trapped_task(TSEM_SHM_ASSOCIATE, msg);
+		return return_trapped_task(TSEM_SHM_ASSOCIATE, msg, false);
 	}
 
 	return model_generic_event(TSEM_SHM_ASSOCIATE, false);
@@ -1179,7 +1172,7 @@ static int tsem_shm_shmctl(struct kern_ipc_perm *perm, int cmd)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "id=%d, mode=%u, cmd=%d",
 			  perm->id, perm->mode, cmd);
-		return return_trapped_task(TSEM_SHM_SHMCTL, msg);
+		return return_trapped_task(TSEM_SHM_SHMCTL, msg, false);
 	}
 
 	return model_generic_event(TSEM_SHM_SHMCTL, false);
@@ -1193,7 +1186,7 @@ static int tsem_shm_shmat(struct kern_ipc_perm *perm, char __user *shmaddr,
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "id=%d, mode=%u, flag=%d",
 			  perm->id, perm->mode, shmflg);
-		return return_trapped_task(TSEM_SHM_SHMAT, msg);
+		return return_trapped_task(TSEM_SHM_SHMAT, msg, false);
 	}
 
 	return model_generic_event(TSEM_SHM_SHMAT, false);
@@ -1206,7 +1199,7 @@ static int tsem_sem_associate(struct kern_ipc_perm *perm, int semflg)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "id=%d, mode=%u, flag=%d",
 			  perm->id, perm->mode, semflg);
-		return return_trapped_task(TSEM_SEM_ASSOCIATE, msg);
+		return return_trapped_task(TSEM_SEM_ASSOCIATE, msg, false);
 	}
 
 	return model_generic_event(TSEM_SEM_ASSOCIATE, false);
@@ -1219,7 +1212,7 @@ static int tsem_sem_semctl(struct kern_ipc_perm *perm, int cmd)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "id=%d, mode=%u, cmd=%d",
 			  perm->id, perm->mode, cmd);
-		return return_trapped_task(TSEM_SEM_SEMCTL, msg);
+		return return_trapped_task(TSEM_SEM_SEMCTL, msg, false);
 	}
 
 	return model_generic_event(TSEM_SEM_SEMCTL, false);
@@ -1234,7 +1227,7 @@ static int tsem_sem_semop(struct kern_ipc_perm *perm, struct sembuf *sops,
 		scnprintf(msg, sizeof(msg),
 			  "id=%d, mode=%u, nsops=%u, alter=%d", perm->id,
 			  perm->mode, nsops, alter);
-		return return_trapped_task(TSEM_SEM_SEMOP, msg);
+		return return_trapped_task(TSEM_SEM_SEMOP, msg, false);
 	}
 
 	return model_generic_event(TSEM_SEM_SEMOP, false);
@@ -1246,7 +1239,7 @@ static int tsem_syslog(int type)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "type=%d", type);
-		return return_trapped_task(TSEM_SYSLOG, msg);
+		return return_trapped_task(TSEM_SYSLOG, msg, false);
 	}
 
 	return model_generic_event(TSEM_SYSLOG, false);
@@ -1261,7 +1254,7 @@ static int tsem_settime(const struct timespec64 *ts, const struct timezone *tz)
 			  "secs=%lld, nsecs=%ld, mwest=%d, dsttime=%d",
 			  ts->tv_sec, ts->tv_nsec, tz->tz_minuteswest,
 			  tz->tz_dsttime);
-		return return_trapped_task(TSEM_SETTIME, msg);
+		return return_trapped_task(TSEM_SETTIME, msg, false);
 	}
 
 	return model_generic_event(TSEM_SETTIME, false);
@@ -1276,7 +1269,7 @@ static int tsem_quotactl(int cmds, int type, int id,
 		scnprintf(msg, sizeof(msg),
 			  "cmds=%d, type=%d, id=%d, fstype=%s, type=%s", cmds,
 			  type, id, sb->s_type->name, sb->s_root->d_name.name);
-		return return_trapped_task(TSEM_QUOTACTL, msg);
+		return return_trapped_task(TSEM_QUOTACTL, msg, false);
 	}
 
 	return model_generic_event(TSEM_QUOTACTL, false);
@@ -1288,7 +1281,7 @@ static int tsem_quota_on(struct dentry *dentry)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "name=%s", dentry->d_name.name);
-		return return_trapped_task(TSEM_QUOTA_ON, msg);
+		return return_trapped_task(TSEM_QUOTA_ON, msg, false);
 	}
 
 	return model_generic_event(TSEM_QUOTA_ON, false);
@@ -1302,7 +1295,8 @@ static int tsem_msg_queue_associate(struct kern_ipc_perm *perm, int msqflg)
 		scnprintf(msg, sizeof(msg),
 			  "id=%d, mode=%u, msqflg=%d", perm->id, perm->mode,
 			  msqflg);
-		return return_trapped_task(TSEM_MSG_QUEUE_ASSOCIATE, msg);
+		return return_trapped_task(TSEM_MSG_QUEUE_ASSOCIATE, msg,
+					   false);
 	}
 
 	return model_generic_event(TSEM_MSG_QUEUE_ASSOCIATE, false);
@@ -1318,7 +1312,7 @@ static int tsem_msg_queue_msgsnd(struct kern_ipc_perm *perm,
 		scnprintf(msg, sizeof(msg),
 			  "id=%d, mode=%u, msqflg=%d", perm->id, perm->mode,
 			  msqflg);
-		return return_trapped_task(TSEM_MSG_QUEUE_MSGSND, msg);
+		return return_trapped_task(TSEM_MSG_QUEUE_MSGSND, msg, false);
 	}
 
 	return model_generic_event(TSEM_MSG_QUEUE_MSGSND, false);
@@ -1332,7 +1326,7 @@ static int tsem_msg_queue_msgctl(struct kern_ipc_perm *perm, int cmd)
 		scnprintf(msg, sizeof(msg),
 			  "id=%d, mode=%u, cmd=%d", perm->id, perm->mode,
 			  cmd);
-		return return_trapped_task(TSEM_MSG_QUEUE_MSGCTL, msg);
+		return return_trapped_task(TSEM_MSG_QUEUE_MSGCTL, msg, false);
 	}
 
 	return model_generic_event(TSEM_MSG_QUEUE_MSGCTL, false);
@@ -1349,7 +1343,7 @@ static int tsem_msg_queue_msgrcv(struct kern_ipc_perm *perm,
 		scnprintf(msg, sizeof(msg),
 			  "id=%d, mode=%u, target=%s, type=%ld, mode=%d",
 			  perm->id, perm->mode, target->comm, type, mode);
-		return return_trapped_task(TSEM_MSG_QUEUE_MSGRCV, msg);
+		return return_trapped_task(TSEM_MSG_QUEUE_MSGRCV, msg, false);
 	}
 
 	return model_generic_event(TSEM_MSG_QUEUE_MSGRCV, false);
@@ -1365,7 +1359,7 @@ static int tsem_ipc_permission(struct kern_ipc_perm *ipcp, short flag)
 			  from_kuid(&init_user_ns, ipcp->uid),
 			  from_kgid(&init_user_ns, ipcp->gid), ipcp->mode,
 			  flag);
-		return return_trapped_task(TSEM_IPC_PERMISSION, msg);
+		return return_trapped_task(TSEM_IPC_PERMISSION, msg, false);
 	}
 
 	return model_generic_event(TSEM_IPC_PERMISSION, false);
@@ -1384,7 +1378,7 @@ static int tsem_key_alloc(struct key *key, const struct cred *cred,
 			  from_kgid(&init_user_ns, cred->gid),
 			  from_kuid(&init_user_ns, cred->euid),
 			  from_kgid(&init_user_ns, cred->egid), flags);
-		return return_trapped_task(TSEM_KEY_ALLOC, msg);
+		return return_trapped_task(TSEM_KEY_ALLOC, msg, false);
 	}
 
 	if (unlikely(!tsem_ready))
@@ -1408,7 +1402,7 @@ static int tsem_key_permission(key_ref_t key_ref, const struct cred *cred,
 			  from_kgid(&init_user_ns, cred->gid),
 			  from_kuid(&init_user_ns, cred->euid),
 			  from_kgid(&init_user_ns, cred->egid), perm);
-		return return_trapped_task(TSEM_KEY_PERMISSION, msg);
+		return return_trapped_task(TSEM_KEY_PERMISSION, msg, true);
 	}
 
 	return model_generic_event(TSEM_KEY_PERMISSION, true);
@@ -1426,7 +1420,7 @@ static int tsem_netlink_send(struct sock *sk, struct sk_buff *skb)
 			  "uid=%d, gid=%d",
 			  from_kuid(&init_user_ns, cred->uid),
 			  from_kgid(&init_user_ns, cred->gid));
-		return return_trapped_task(TSEM_NETLINK_SEND, msg);
+		return return_trapped_task(TSEM_NETLINK_SEND, msg, false);
 	}
 
 	return model_generic_event(TSEM_NETLINK_SEND, false);
@@ -1440,7 +1434,8 @@ static int tsem_inode_create(struct inode *dir,
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "name=%s, mode=%u",
 			  dentry->d_name.name, mode);
-		return return_trapped_inode(TSEM_INODE_CREATE, dir, msg);
+		return return_trapped_inode(TSEM_INODE_CREATE, dir, msg,
+					    false);
 	}
 
 	if (bypass_inode(dir))
@@ -1456,7 +1451,7 @@ static int tsem_inode_link(struct dentry *old_dentry, struct inode *dir,
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "old_name=%s, new_name=%s",
 			  old_dentry->d_name.name, new_dentry->d_name.name);
-		return return_trapped_task(TSEM_INODE_LINK, msg);
+		return return_trapped_task(TSEM_INODE_LINK, msg, false);
 	}
 
 	if (bypass_inode(dir))
@@ -1470,7 +1465,8 @@ static int tsem_inode_unlink(struct inode *dir, struct dentry *dentry)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "target=%s", dentry->d_name.name);
-		return return_trapped_inode(TSEM_INODE_UNLINK, dir, msg);
+		return return_trapped_inode(TSEM_INODE_UNLINK, dir, msg,
+					    false);
 	}
 
 	if (bypass_inode(dir))
@@ -1485,7 +1481,7 @@ static int tsem_inode_symlink(struct inode *dir, struct dentry *dentry,
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "target=%s", dentry->d_name.name);
-		return return_trapped_task(TSEM_INODE_SYMLINK, msg);
+		return return_trapped_task(TSEM_INODE_SYMLINK, msg, false);
 	}
 
 	if (bypass_inode(dir))
@@ -1501,7 +1497,7 @@ static int tsem_inode_mkdir(struct inode *dir, struct dentry *dentry,
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "target=%s, mode=%u",
 			  dentry->d_name.name, mode);
-		return return_trapped_task(TSEM_INODE_MKDIR, msg);
+		return return_trapped_task(TSEM_INODE_MKDIR, msg, false);
 	}
 
 	if (bypass_inode(dir))
@@ -1515,7 +1511,7 @@ static int tsem_inode_rmdir(struct inode *dir, struct dentry *dentry)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "name=%s", dentry->d_name.name);
-		return return_trapped_task(TSEM_INODE_RMDIR, msg);
+		return return_trapped_task(TSEM_INODE_RMDIR, msg, false);
 	}
 
 	if (bypass_inode(dir))
@@ -1531,7 +1527,7 @@ static int tsem_inode_rename(struct inode *old_dir, struct dentry *old_dentry,
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "old=%s, new=%s",
 			  old_dentry->d_name.name, new_dentry->d_name.name);
-		return return_trapped_task(TSEM_INODE_RENAME, msg);
+		return return_trapped_task(TSEM_INODE_RENAME, msg, false);
 	}
 
 	if (bypass_inode(old_dir))
@@ -1547,7 +1543,7 @@ static int tsem_inode_mknod(struct inode *dir, struct dentry *dentry,
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "name=%s, mode=%u, dev=%u",
 			  dentry->d_name.name, mode, dev);
-		return return_trapped_task(TSEM_INODE_MKNOD, msg);
+		return return_trapped_task(TSEM_INODE_MKNOD, msg, false);
 	}
 
 	if (unlikely(!tsem_ready))
@@ -1568,7 +1564,7 @@ static int tsem_inode_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
 			  from_kuid(&init_user_ns, attr->ia_uid),
 			  from_kgid(&init_user_ns, attr->ia_gid),
 			  attr->ia_size);
-		return return_trapped_task(TSEM_INODE_SETATTR, msg);
+		return return_trapped_task(TSEM_INODE_SETATTR, msg, false);
 	}
 
 	if (unlikely(!tsem_ready))
@@ -1584,7 +1580,7 @@ static int tsem_inode_getattr(const struct path *path)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "name=%s",
 			  path->dentry->d_name.name);
-		return return_trapped_task(TSEM_INODE_GETATTR, msg);
+		return return_trapped_task(TSEM_INODE_GETATTR, msg, false);
 	}
 
 	if (unlikely(!tsem_ready))
@@ -1603,7 +1599,7 @@ static int tsem_inode_setxattr(struct mnt_idmap *idmap,
 		scnprintf(msg, sizeof(msg),
 			  "fname=%s, name=%s, size=%lu, flags=%d",
 			  dentry->d_name.name, name, size, flags);
-		return return_trapped_task(TSEM_INODE_SETXATTR, msg);
+		return return_trapped_task(TSEM_INODE_SETXATTR, msg, false);
 	}
 
 	return model_generic_event(TSEM_INODE_SETXATTR, false);
@@ -1616,7 +1612,7 @@ static int tsem_inode_getxattr(struct dentry *dentry, const char *name)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg),
 			  "fname=%s, name=%s", dentry->d_name.name, name);
-		return return_trapped_task(TSEM_INODE_GETXATTR, msg);
+		return return_trapped_task(TSEM_INODE_GETXATTR, msg, false);
 	}
 
 	return model_generic_event(TSEM_INODE_GETXATTR, false);
@@ -1628,7 +1624,7 @@ static int tsem_inode_listxattr(struct dentry *dentry)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "fname=%s", dentry->d_name.name);
-		return return_trapped_task(TSEM_INODE_LISTXATTR, msg);
+		return return_trapped_task(TSEM_INODE_LISTXATTR, msg, false);
 	}
 
 	return model_generic_event(TSEM_INODE_LISTXATTR, false);
@@ -1642,7 +1638,7 @@ static int tsem_inode_removexattr(struct mnt_idmap *idmap,
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "fname=%s, name=%s",
 			  dentry->d_name.name, name);
-		return return_trapped_task(TSEM_INODE_REMOVEXATTR, msg);
+		return return_trapped_task(TSEM_INODE_REMOVEXATTR, msg, false);
 	}
 
 	return model_generic_event(TSEM_INODE_REMOVEXATTR, false);
@@ -1655,7 +1651,7 @@ static int tsem_inode_killpriv(struct mnt_idmap *idmap,
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "fname=%s", dentry->d_name.name);
-		return return_trapped_task(TSEM_INODE_KILLPRIV, msg);
+		return return_trapped_task(TSEM_INODE_KILLPRIV, msg, false);
 	}
 
 	return model_generic_event(TSEM_INODE_KILLPRIV, false);
@@ -1664,7 +1660,7 @@ static int tsem_inode_killpriv(struct mnt_idmap *idmap,
 static int tsem_tun_dev_create(void)
 {
 	if (tsem_task_untrusted(current))
-		return return_trapped_task(TSEM_TUN_DEV_CREATE, "none");
+		return return_trapped_task(TSEM_TUN_DEV_CREATE, "none", false);
 
 	return model_generic_event(TSEM_TUN_DEV_CREATE, false);
 }
@@ -1672,7 +1668,8 @@ static int tsem_tun_dev_create(void)
 static int tsem_tun_dev_attach_queue(void *security)
 {
 	if (tsem_task_untrusted(current))
-		return return_trapped_task(TSEM_TUN_DEV_ATTACH_QUEUE, "none");
+		return return_trapped_task(TSEM_TUN_DEV_ATTACH_QUEUE, "none",
+					   false);
 
 	return model_generic_event(TSEM_TUN_DEV_ATTACH_QUEUE, false);
 }
@@ -1683,7 +1680,7 @@ static int tsem_tun_dev_attach(struct sock *sk, void *security)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "family=%u", sk->sk_family);
-		return return_trapped_task(TSEM_TUN_DEV_ATTACH, msg);
+		return return_trapped_task(TSEM_TUN_DEV_ATTACH, msg, false);
 	}
 
 	return model_generic_event(TSEM_TUN_DEV_ATTACH, false);
@@ -1692,7 +1689,7 @@ static int tsem_tun_dev_attach(struct sock *sk, void *security)
 static int tsem_tun_dev_open(void *security)
 {
 	if (tsem_task_untrusted(current))
-		return return_trapped_task(TSEM_TUN_DEV_OPEN, "none");
+		return return_trapped_task(TSEM_TUN_DEV_OPEN, "none", false);
 
 	return model_generic_event(TSEM_TUN_DEV_OPEN, false);
 }
@@ -1704,7 +1701,7 @@ static int tsem_bpf(int cmd, union bpf_attr *attr, unsigned int size)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "cmd=%d, size=%u", cmd, size);
-		return return_trapped_task(TSEM_BPF, msg);
+		return return_trapped_task(TSEM_BPF, msg, false);
 	}
 
 	return model_generic_event(TSEM_BPF, false);
@@ -1717,7 +1714,7 @@ static int tsem_bpf_map(struct bpf_map *map, fmode_t fmode)
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "type=%d, size=%u", map->map_type,
 			  fmode);
-		return return_trapped_task(TSEM_BPF_MAP, msg);
+		return return_trapped_task(TSEM_BPF_MAP, msg, false);
 	}
 
 	return model_generic_event(TSEM_BPF_MAP, false);
@@ -1729,7 +1726,7 @@ static int tsem_bpf_prog(struct bpf_prog *prog)
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg), "type=%d", prog->type);
-		return return_trapped_task(TSEM_BPF_PROG, msg);
+		return return_trapped_task(TSEM_BPF_PROG, msg, false);
 	}
 
 	return model_generic_event(TSEM_BPF_PROG, false);
