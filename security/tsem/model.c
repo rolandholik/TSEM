@@ -456,7 +456,7 @@ int tsem_model_event(struct tsem_event *ep)
 			retn = add_trajectory_point(ep);
 	}
 
-	if (retn)
+	if (retn || !point)
 		retn = -EPERM;
 	else
 		++point->count;
