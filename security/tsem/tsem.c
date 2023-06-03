@@ -1950,7 +1950,7 @@ static int __init tsem_init(void)
 	if (retn)
 		return retn;
 
-	retn = tsem_model_cache_init(model);
+	retn = tsem_model_cache_init(model, magazine_size);
 	if (retn)
 		goto done;
 
