@@ -19737,14 +19737,6 @@ F:	include/uapi/linux/selinux_netlink.h
 F:	scripts/selinux/
 F:	security/selinux/
 
-TSEM SECURITY MODULE
-M:	Greg Wettstein <greg@enjellic.com>
-S:	Maintained
-L:	linux-security-module@vger.kernel.org
-F:	Documentation/admin-guide/LSM/tsem.rst
-F:	Documentation/ABI/testing/tsemfs
-F:	security/tsem/
-
 SENSABLE PHANTOM
 M:	Jiri Slaby <jirislaby@kernel.org>
 S:	Maintained
@@ -22366,6 +22358,14 @@ S:	Maintained
 F:	Documentation/ABI/testing/configfs-tsm
 F:	drivers/virt/coco/tsm.c
 F:	include/linux/tsm.h
+ 
+TSEM SECURITY MODULE
+M:	Greg Wettstein <greg@enjellic.com>
+S:	Maintained
+L:	linux-security-module@vger.kernel.org
+F:	Documentation/admin-guide/LSM/tsem.rst
+F:	Documentation/ABI/testing/tsem
+F:	security/tsem/
 
 TTY LAYER AND SERIAL DRIVERS
 M:	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
