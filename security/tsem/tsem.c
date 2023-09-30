@@ -108,7 +108,6 @@ __setup("tsem_digest=", set_default_hash_function);
 const char * const tsem_names[TSEM_EVENT_CNT] = {
 	"undefined",
 	"bprm_set_creds",
-	"generic_event",
 	"task_kill",
 	"task_setpgid",
 	"task_getpgid",
@@ -296,17 +295,14 @@ static int model_generic_event(enum tsem_event_type event, bool locked)
 {
 	int retn;
 	struct tsem_event *ep;
-	struct tsem_event_parameters params;
 
 	if (!tsem_context(current)->id && no_root_modeling)
 		return 0;
 
-	params.u.event_type = event;
-
 	if (locked)
-		ep = tsem_map_event_locked(TSEM_GENERIC_EVENT, &params);
+		ep = tsem_map_event_locked(event, NULL);
 	else
-		ep = tsem_map_event(TSEM_GENERIC_EVENT, &params);
+		ep = tsem_map_event(event, NULL);
 	if (IS_ERR(ep))
 		return PTR_ERR(ep);
 
