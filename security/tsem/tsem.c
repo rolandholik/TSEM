@@ -1646,6 +1646,7 @@ static int tsem_inode_getattr(const struct path *path)
 	int retn = 0;
 	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep = NULL;
+	struct tsem_inode_getattr_args args;
 	struct tsem_event_parameters params;
 
 	if (unlikely(!tsem_ready))
@@ -1660,7 +1661,8 @@ static int tsem_inode_getattr(const struct path *path)
 	if (bypass_filesystem(path->dentry->d_inode))
 		return 0;
 
-	params.u.path = path;
+	args.path_arg = path;
+	params.u.inode_getattr = &args;
 	ep = tsem_map_event(TSEM_INODE_GETATTR, &params);
 	if (IS_ERR(ep)) {
 		retn = PTR_ERR(ep);
