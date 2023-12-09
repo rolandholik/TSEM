@@ -1604,7 +1604,7 @@ static int tsem_inode_setattr(struct dentry *dentry, struct iattr *attr)
 	int retn = 0;
 	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep = NULL;
-	struct tsem_inode_setattr_args args;
+	struct tsem_inode_attr_args args;
 	struct tsem_event_parameters params;
 
 	if (unlikely(!tsem_ready))
@@ -1625,7 +1625,7 @@ static int tsem_inode_setattr(struct dentry *dentry, struct iattr *attr)
 
 	args.in.dentry = dentry;
 	args.in.iattr = attr;
-	params.u.inode_setattr = &args;
+	params.u.inode_attr = &args;
 
 	ep = tsem_map_event(TSEM_INODE_SETATTR, &params);
 	if (IS_ERR(ep)) {
@@ -1645,7 +1645,7 @@ static int tsem_inode_getattr(const struct path *path)
 	int retn = 0;
 	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep = NULL;
-	struct tsem_inode_getattr_args args;
+	struct tsem_inode_attr_args args;
 	struct tsem_event_parameters params;
 
 	if (unlikely(!tsem_ready))
@@ -1660,8 +1660,8 @@ static int tsem_inode_getattr(const struct path *path)
 	if (bypass_filesystem(path->dentry->d_inode))
 		return 0;
 
-	args.path_arg = path;
-	params.u.inode_getattr = &args;
+	args.in.path = path;
+	params.u.inode_attr = &args;
 	ep = tsem_map_event(TSEM_INODE_GETATTR, &params);
 	if (IS_ERR(ep)) {
 		retn = PTR_ERR(ep);
