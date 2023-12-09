@@ -1676,7 +1676,7 @@ static int tsem_inode_setxattr(struct user_namespace *mnt_userns,
 	int retn = 0;
 	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep = NULL;
-	struct tsem_inode_getxattr_args args;
+	struct tsem_inode_xattr_args args;
 	struct tsem_event_parameters params;
 
 	if (tsem_task_untrusted(current)) {
@@ -1694,7 +1694,7 @@ static int tsem_inode_setxattr(struct user_namespace *mnt_userns,
 	args.in.value = value;
 	args.in.size = size;
 	args.in.flags = flags;
-	params.u.inode_getxattr = &args;
+	params.u.inode_xattr = &args;
 
 	ep = tsem_map_event(TSEM_INODE_SETXATTR, &params);
 	if (IS_ERR(ep)) {
@@ -1714,7 +1714,7 @@ static int tsem_inode_getxattr(struct dentry *dentry, const char *name)
 	int retn = 0;
 	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep = NULL;
-	struct tsem_inode_getxattr_args args;
+	struct tsem_inode_xattr_args args;
 	struct tsem_event_parameters params;
 
 	if (unlikely(!tsem_ready))
@@ -1731,7 +1731,7 @@ static int tsem_inode_getxattr(struct dentry *dentry, const char *name)
 
 	args.in.dentry = dentry;
 	args.in.name = name;
-	params.u.inode_getxattr = &args;
+	params.u.inode_xattr = &args;
 
 	ep = tsem_map_event(TSEM_INODE_GETXATTR, &params);
 	if (IS_ERR(ep)) {
@@ -1752,7 +1752,7 @@ static int tsem_inode_listxattr(struct dentry *dentry)
 	char msg[TRAPPED_MSG_LENGTH];
 
 	struct tsem_event *ep = NULL;
-	struct tsem_inode_getxattr_args args;
+	struct tsem_inode_xattr_args args;
 	struct tsem_event_parameters params;
 
 	if (unlikely(!tsem_ready))
@@ -1767,7 +1767,7 @@ static int tsem_inode_listxattr(struct dentry *dentry)
 		return 0;
 
 	args.in.dentry = dentry;
-	params.u.inode_getxattr = &args;
+	params.u.inode_xattr = &args;
 
 	ep = tsem_map_event(TSEM_INODE_LISTXATTR, &params);
 	if (IS_ERR(ep)) {
@@ -1788,7 +1788,7 @@ static int tsem_inode_removexattr(struct user_namespace *mnt,
 	int retn = 0;
 	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep = NULL;
-	struct tsem_inode_getxattr_args args;
+	struct tsem_inode_xattr_args args;
 	struct tsem_event_parameters params;
 
 	if (tsem_task_untrusted(current)) {
@@ -1802,7 +1802,7 @@ static int tsem_inode_removexattr(struct user_namespace *mnt,
 
 	args.in.dentry = dentry;
 	args.in.name = name;
-	params.u.inode_getxattr = &args;
+	params.u.inode_xattr = &args;
 
 	ep = tsem_map_event(TSEM_INODE_REMOVEXATTR, &params);
 	if (IS_ERR(ep)) {
