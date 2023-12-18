@@ -431,6 +431,10 @@ int tsem_model_event(struct tsem_event *ep)
 	struct tsem_task *task = tsem_task(current);
 	struct tsem_context *ctx = task->context;
 
+	retn = tsem_map_event(ep);
+	if (retn)
+		return retn;
+
 	point = have_point(ep->mapping);
 	if (point) {
 		++point->count;
@@ -441,7 +445,7 @@ int tsem_model_event(struct tsem_event *ep)
 
 	retn = update_events_measurement(ep);
 	if (retn)
-		goto done;
+		return retn;
 
 	retn = -ENOMEM;
 	if (ctx->sealed) {
@@ -458,8 +462,6 @@ int tsem_model_event(struct tsem_event *ep)
 
 	if (!retn)
 		++point->count;
-
- done:
 	return retn;
 }
 
@@ -495,7 +497,7 @@ int tsem_model_load_point(u8 *point)
 		ctx->model->have_aggregate = true;
 	}
 
-	ep = tsem_event_allocate(false);
+	ep = tsem_event_allocate(0, false);
 	if (!ep)
 		return retn;
 
@@ -564,12 +566,12 @@ void tsem_model_load_base(u8 *mapping)
  */
 int tsem_model_add_aggregate(void)
 {
-	int retn = -ENOMEM;
+	int retn;
 	struct tsem_event *ep;
 
-	ep = tsem_event_allocate(false);
+	ep = tsem_event_allocate(0, false);
 	if (!ep)
-		return retn;
+		return -ENOMEM;
 
 	kref_init(&ep->kref);
 	ep->digestsize = tsem_digestsize();
