@@ -1444,9 +1444,9 @@ static int tsem_inode_create(struct inode *dir, struct dentry *dentry,
 	if (!ep)
 		return -ENOMEM;
 
-	ep->CELL.inode_create.in.dir = dir;
-	ep->CELL.inode_create.in.dentry = dentry;
-	ep->CELL.inode_create.mode = mode;
+	ep->CELL.inode.in.dir = dir;
+	ep->CELL.inode.in.dentry = dentry;
+	ep->CELL.inode.mode = mode;
 
 	retn = dispatch_event(ep);
 	tsem_event_put(ep);
@@ -1477,10 +1477,10 @@ static int tsem_inode_link(struct dentry *old_dentry, struct inode *dir,
 	if (!ep)
 		return -ENOMEM;
 
-	ep->CELL.inode_create.in.dir = dir;
-	ep->CELL.inode_create.in.dentry = old_dentry;
-	ep->CELL.inode_create.in.new_dentry = new_dentry;
-	ep->CELL.inode_create.mode = 0;
+	ep->CELL.inode.in.dir = dir;
+	ep->CELL.inode.in.dentry = old_dentry;
+	ep->CELL.inode.in.new_dentry = new_dentry;
+	ep->CELL.inode.mode = 0;
 
 	retn = dispatch_event(ep);
 	tsem_event_put(ep);
@@ -1506,9 +1506,9 @@ static int tsem_inode_unlink(struct inode *dir, struct dentry *dentry)
 	if (!ep)
 		return -ENOMEM;
 
-	ep->CELL.inode_create.in.dir = dir;
-	ep->CELL.inode_create.in.dentry = dentry;
-	ep->CELL.inode_create.mode = 0;
+	ep->CELL.inode.in.dir = dir;
+	ep->CELL.inode.in.dentry = dentry;
+	ep->CELL.inode.mode = 0;
 
 	retn = dispatch_event(ep);
 	tsem_event_put(ep);
@@ -1538,9 +1538,9 @@ static int tsem_inode_symlink(struct inode *dir, struct dentry *dentry,
 	if (!ep)
 		return -ENOMEM;
 
-	ep->CELL.inode_create.in.dir = dir;
-	ep->CELL.inode_create.in.dentry = dentry;
-	ep->CELL.inode_create.in.old_name = old_name;
+	ep->CELL.inode.in.dir = dir;
+	ep->CELL.inode.in.dentry = dentry;
+	ep->CELL.inode.in.old_name = old_name;
 
 	retn = dispatch_event(ep);
 	tsem_event_put(ep);
@@ -1571,9 +1571,9 @@ static int tsem_inode_mkdir(struct inode *dir, struct dentry *dentry,
 	if (!ep)
 		return -ENOMEM;
 
-	ep->CELL.inode_create.in.dir = dir;
-	ep->CELL.inode_create.in.dentry = dentry;
-	ep->CELL.inode_create.mode = mode;
+	ep->CELL.inode.in.dir = dir;
+	ep->CELL.inode.in.dentry = dentry;
+	ep->CELL.inode.mode = mode;
 
 	retn = dispatch_event(ep);
 	tsem_event_put(ep);
@@ -1599,9 +1599,9 @@ static int tsem_inode_rmdir(struct inode *dir, struct dentry *dentry)
 	if (!ep)
 		return -ENOMEM;
 
-	ep->CELL.inode_create.in.dir = dir;
-	ep->CELL.inode_create.in.dentry = dentry;
-	ep->CELL.inode_create.mode = 0;
+	ep->CELL.inode.in.dir = dir;
+	ep->CELL.inode.in.dentry = dentry;
+	ep->CELL.inode.mode = 0;
 
 	retn = dispatch_event(ep);
 	tsem_event_put(ep);
@@ -1660,10 +1660,10 @@ static int tsem_inode_mknod(struct inode *dir, struct dentry *dentry,
 	if (!ep)
 		return -ENOMEM;
 
-	ep->CELL.inode_create.in.dir = dir;
-	ep->CELL.inode_create.in.dentry = dentry;
-	ep->CELL.inode_create.mode = mode;
-	ep->CELL.inode_create.dev = dev;
+	ep->CELL.inode.in.dir = dir;
+	ep->CELL.inode.in.dentry = dentry;
+	ep->CELL.inode.mode = mode;
+	ep->CELL.inode.dev = dev;
 
 	retn = dispatch_event(ep);
 	tsem_event_put(ep);
@@ -1878,7 +1878,7 @@ static int tsem_inode_killpriv(struct mnt_idmap *idmap,
 	if (!ep)
 		return -ENOMEM;
 
-	ep->CELL.inode_create.in.dentry = dentry;
+	ep->CELL.inode.in.dentry = dentry;
 
 	retn = dispatch_event(ep);
 	tsem_event_put(ep);
