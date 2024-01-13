@@ -1678,6 +1678,7 @@ static int tsem_msg_queue_msgsnd(struct kern_ipc_perm *perm,
 
 {
 	char msg[TRAPPED_MSG_LENGTH];
+	struct tsem_event *ep;
 
 	if (tsem_task_untrusted(current)) {
 		scnprintf(msg, sizeof(msg),
@@ -1686,7 +1687,14 @@ static int tsem_msg_queue_msgsnd(struct kern_ipc_perm *perm,
 		return trapped_task(TSEM_MSG_QUEUE_MSGSND, msg, LOCKED);
 	}
 
-	return dispatch_generic_event(TSEM_MSG_QUEUE_MSGSND, LOCKED);
+	ep = tsem_event_allocate(TSEM_MSG_QUEUE_MSGSND, LOCKED);
+	if (!ep)
+		return -ENOMEM;
+
+	ep->CELL.ipc.in.perm = perm;
+	ep->CELL.ipc.value = msqflg;
+
+	return dispatch_event(ep);
 }
 
 static int tsem_msg_queue_msgctl(struct kern_ipc_perm *perm, int cmd)
