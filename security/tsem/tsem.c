@@ -6,8 +6,6 @@
  *
  * TSEM initialization infrastructure.
  */
-#define TRAPPED_MSG_LENGTH 128
-
 #define LOCKED true
 #define NOLOCK false
 
@@ -236,69 +234,41 @@ static bool bypass_filesystem(struct inode *inode)
 	return false;
 }
 
-static int event_action(struct tsem_context *ctx, enum tsem_event_type event)
+static int untrusted_task(struct tsem_event *ep)
 {
 	int retn = 0;
-
-	if (tsem_task_trusted(current))
-		return retn;
-
-	if (ctx->actions[event] == TSEM_ACTION_EPERM)
-		retn = -EPERM;
-
-	return retn;
-}
-
-static int trapped_task(enum tsem_event_type event, char *msg, bool locked)
-{
-	int retn;
 	struct tsem_context *ctx = tsem_context(current);
 
-	pr_warn("Untrusted %s: comm=%s, pid=%d, parameters='%s'\n",
-		tsem_names[event], current->comm, task_pid_nr(current), msg);
-
 	if (ctx->external) {
-		retn = tsem_export_action(event, locked);
+		retn = tsem_export_action(ep->event, ep->locked);
 		if (retn)
 			return retn;
-	}
+	} else
+		pr_warn("Untrusted event %s: model_ns=%lld, comm=%s, pid=%d\n",
+			tsem_names[ep->event], ctx->id, current->comm,
+			task_pid_nr(current));
 
-	return event_action(ctx, event);
-}
-
-static int trapped_inode(enum tsem_event_type event, struct inode *inode,
-			 char *inode_msg, bool locked)
-{
-	const char *dname;
-	char msg[TRAPPED_MSG_LENGTH];
-	struct dentry *dird;
-
-	dird = d_find_alias(inode);
-	if (dird == NULL)
-		dname = "not available";
-	else
-		dname = dird->d_name.name;
-	scnprintf(msg, sizeof(msg), "parent=%s, %s", dname, inode_msg);
-
-	return trapped_task(event, msg, locked);
+	if (ctx->actions[ep->event] == TSEM_ACTION_EPERM)
+		retn = -EPERM;
+	return retn;
 }
 
 static int dispatch_event(struct tsem_event *ep)
 {
-	int retn;
+	int retn = 0;
 	struct tsem_context *ctx = tsem_context(current);
 
 	retn = tsem_event_init(ep);
 	if (retn)
 		return retn;
 
+	if (unlikely(tsem_task_untrusted(current)))
+		return untrusted_task(ep);
+
 	if (!ctx->external)
 		retn = tsem_model_event(ep);
 	else
 		retn = tsem_export_event(ep);
-
-	if (!retn)
-		retn = event_action(ctx, ep->event);
 
 	tsem_event_put(ep);
 	return retn;
@@ -306,18 +276,11 @@ static int dispatch_event(struct tsem_event *ep)
 
 static int tsem_file_open(struct file *file)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct inode *inode = file_inode(file);
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "filename=%s, flags=0x%x",
-			 file->f_path.dentry->d_name.name, file->f_flags);
-		return trapped_task(TSEM_FILE_OPEN, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -340,23 +303,11 @@ static int tsem_file_open(struct file *file)
 static int tsem_mmap_file(struct file *file, unsigned long prot,
 			  unsigned long flags, unsigned long extra)
 {
-	const char *p;
-	char msg[TRAPPED_MSG_LENGTH];
 	struct inode *inode = NULL;
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		p = "anonymous mapping";
-		if (file)
-			p = file->f_path.dentry->d_name.name;
-		scnprintf(msg, sizeof(msg),
-			  "filename=%s, prot=0x%lx, flags=0x%lx", p, prot,
-			  flags);
-		return trapped_task(TSEM_MMAP_FILE, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -386,14 +337,7 @@ static int tsem_mmap_file(struct file *file, unsigned long prot,
 static int tsem_file_ioctl(struct file *file, unsigned int cmd,
 			   unsigned long arg)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "name=%s, cmd=%u",
-			  file->f_path.dentry->d_name.name, cmd);
-		return trapped_task(TSEM_FILE_IOCTL, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -413,14 +357,7 @@ static int tsem_file_ioctl(struct file *file, unsigned int cmd,
 
 static int tsem_file_lock(struct file *file, unsigned int cmd)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "name=%s, cmd=%u",
-			  file->f_path.dentry->d_name.name, cmd);
-		return trapped_task(TSEM_FILE_LOCK, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -438,21 +375,13 @@ static int tsem_file_lock(struct file *file, unsigned int cmd)
 static int tsem_file_fcntl(struct file *file, unsigned int cmd,
 			   unsigned long arg)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
 
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "name=%s, cmd=%u",
-			  file->f_path.dentry->d_name.name, cmd);
-		return trapped_task(TSEM_FILE_FCNTL, msg, NOLOCK);
-	}
-
 	if (bypass_event())
 		return 0;
-
 	if (bypass_filesystem(file_inode(file)))
 		return 0;
 
@@ -468,14 +397,7 @@ static int tsem_file_fcntl(struct file *file, unsigned int cmd,
 
 static int tsem_file_receive(struct file *file)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "name=%s, flags=%u",
-			  file->f_path.dentry->d_name.name, file->f_flags);
-		return trapped_task(TSEM_FILE_RECEIVE, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -524,17 +446,9 @@ static int tsem_task_kill(struct task_struct *target,
 			  const struct cred *cred)
 {
 	bool cross_model;
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 	struct tsem_context *src_ctx = tsem_context(current);
 	struct tsem_context *tgt_ctx = tsem_context(target);
-
-	if (tsem_task_untrusted(current)) {
-		snprintf(msg, sizeof(msg),
-			 "target=%s, pid=%d, signal=%d", target->comm,
-			 task_pid_nr(target), sig);
-		return trapped_task(TSEM_TASK_KILL, msg, true);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -566,14 +480,7 @@ static int tsem_task_kill(struct task_struct *target,
 static int tsem_ptrace_access_check(struct task_struct *child,
 				    unsigned int mode)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "child=%s, mode=%u",
-			  child->comm, mode);
-		return trapped_task(TSEM_PTRACE_ACCESS_CHECK, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -591,13 +498,7 @@ static int tsem_ptrace_access_check(struct task_struct *child,
 
 static int tsem_ptrace_traceme(struct task_struct *parent)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "parent=%s", parent->comm);
-		return trapped_task(TSEM_PTRACE_TRACEME, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -615,16 +516,7 @@ static int tsem_ptrace_traceme(struct task_struct *parent)
 static int tsem_capget(struct task_struct *target, kernel_cap_t *effective,
 		       kernel_cap_t *inheritable, kernel_cap_t *permitted)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "Untrusted %s: comm=%s, pid=%d\n",
-			  tsem_names[TSEM_CAPGET], current->comm,
-			  task_pid_nr(current));
-		return trapped_task(TSEM_CAPGET, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -647,16 +539,7 @@ static int tsem_capset(struct cred *new, const struct cred *old,
 		       const kernel_cap_t *inheritable,
 		       const kernel_cap_t *permitted)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "Untrusted %s: comm=%s, pid=%d\n",
-			  tsem_names[TSEM_CAPSET], current->comm,
-			  task_pid_nr(current));
-		return trapped_task(TSEM_CAPSET, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -675,19 +558,10 @@ static int tsem_capset(struct cred *new, const struct cred *old,
 static int tsem_capable(const struct cred *cred, struct user_namespace *ns,
 			int cap, unsigned int opts)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "Untrusted %s: comm=%s, pid=%d\n",
-			  tsem_names[TSEM_CAPABLE], current->comm,
-			  task_pid_nr(current));
-		return trapped_task(TSEM_CAPABLE, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -704,17 +578,8 @@ static int tsem_capable(const struct cred *cred, struct user_namespace *ns,
 
 static int tsem_task_setpgid(struct task_struct *p, pid_t pgid)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 	struct task_struct *src;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "Untrusted %s: comm=%s, pid=%d, parameters='%s'\n",
-			  tsem_names[TSEM_TASK_SETPGID], current->comm,
-			  task_pid_nr(current), msg);
-		return trapped_task(TSEM_TASK_SETPGID, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -743,13 +608,7 @@ static int tsem_task_setpgid(struct task_struct *p, pid_t pgid)
 
 static int tsem_task_getpgid(struct task_struct *p)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "target=%s", p->comm);
-		return trapped_task(TSEM_TASK_GETPGID, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -766,13 +625,7 @@ static int tsem_task_getpgid(struct task_struct *p)
 
 static int tsem_task_getsid(struct task_struct *p)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "target=%s", p->comm);
-		return trapped_task(TSEM_TASK_GETSID, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -789,14 +642,7 @@ static int tsem_task_getsid(struct task_struct *p)
 
 static int tsem_task_setnice(struct task_struct *p, int nice)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "target=%s, nice=%d",
-			  p->comm, nice);
-		return trapped_task(TSEM_TASK_SETNICE, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -814,14 +660,7 @@ static int tsem_task_setnice(struct task_struct *p, int nice)
 
 static int tsem_task_setioprio(struct task_struct *p, int ioprio)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "target=%s, ioprio=%d",
-			  p->comm, ioprio);
-		return trapped_task(TSEM_TASK_SETIOPRIO, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -839,13 +678,7 @@ static int tsem_task_setioprio(struct task_struct *p, int ioprio)
 
 static int tsem_task_getioprio(struct task_struct *p)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "target=%s", p->comm);
-		return trapped_task(TSEM_TASK_GETIOPRIO, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -863,18 +696,7 @@ static int tsem_task_getioprio(struct task_struct *p)
 static int tsem_task_prlimit(const struct cred *cred, const struct cred *tcred,
 			     unsigned int flags)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "uid=%d, gid=%d, euid=%d, egid=%d, flags=%u",
-			  from_kuid(&init_user_ns, tcred->uid),
-			  from_kgid(&init_user_ns, tcred->gid),
-			  from_kuid(&init_user_ns, tcred->euid),
-			  from_kgid(&init_user_ns, tcred->egid), flags);
-		return trapped_task(TSEM_TASK_PRLIMIT, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -893,16 +715,7 @@ static int tsem_task_prlimit(const struct cred *cred, const struct cred *tcred,
 static int tsem_task_setrlimit(struct task_struct *p, unsigned int resource,
 			       struct rlimit *new_rlim)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "target=%s, res=%u, cur=%lu, max=%lu",
-			  p->comm, resource, new_rlim->rlim_cur,
-			  new_rlim->rlim_max);
-		return trapped_task(TSEM_TASK_SETRLIMIT, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -922,14 +735,7 @@ static int tsem_task_setrlimit(struct task_struct *p, unsigned int resource,
 
 static int tsem_task_setscheduler(struct task_struct *p)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "target=%s", p->comm);
-		return trapped_task(TSEM_TASK_SETSCHEDULER, msg,
-					   LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -946,14 +752,7 @@ static int tsem_task_setscheduler(struct task_struct *p)
 
 static int tsem_task_getscheduler(struct task_struct *p)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "target=%s", p->comm);
-		return trapped_task(TSEM_TASK_GETSCHEDULER, msg,
-					   LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -971,13 +770,7 @@ static int tsem_task_getscheduler(struct task_struct *p)
 static int tsem_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 			   unsigned long arg4, unsigned long arg5)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "option=%d", option);
-		return trapped_task(TSEM_TASK_PRCTL, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1037,14 +830,7 @@ static void tsem_inode_free_security(struct inode *inode)
 static int tsem_unix_stream_connect(struct sock *sock, struct sock *other,
 				    struct sock *newsk)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "family=%u/%u, ",
-			  sock->sk_family, other->sk_family);
-		return trapped_task(TSEM_UNIX_STREAM_CONNECT, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1061,15 +847,7 @@ static int tsem_unix_stream_connect(struct sock *sock, struct sock *other,
 
 static int tsem_unix_may_send(struct socket *sock, struct socket *other)
 {
-	char msg[TRAPPED_MSG_LENGTH];
-	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "family=%u, type=%u",
-			  sk->sk_family, sock->type);
-		return trapped_task(TSEM_UNIX_MAY_SEND, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1098,18 +876,10 @@ static int tsem_socket_post_create(struct socket *sock, int family, int type,
 
 static int tsem_socket_create(int family, int type, int protocol, int kern)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "family=%d, type=%d, protocol=%d, kern=%d", family,
-			  type, protocol, kern);
-		return trapped_task(TSEM_SOCKET_CREATE, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1129,13 +899,7 @@ static int tsem_socket_create(int family, int type, int protocol, int kern)
 static int tsem_socket_connect(struct socket *sock, struct sockaddr *addr,
 			     int addr_len)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "family=%u", addr->sa_family);
-		return trapped_task(TSEM_SOCKET_CONNECT, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1155,13 +919,7 @@ static int tsem_socket_bind(struct socket *sock, struct sockaddr *addr,
 			    int addr_len)
 
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "family=%u", addr->sa_family);
-		return trapped_task(TSEM_SOCKET_BIND, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1179,13 +937,7 @@ static int tsem_socket_bind(struct socket *sock, struct sockaddr *addr,
 
 static int tsem_socket_accept(struct socket *sock, struct socket *newsock)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "family=%u", sock->sk->sk_family);
-		return trapped_task(TSEM_SOCKET_ACCEPT, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1202,15 +954,8 @@ static int tsem_socket_accept(struct socket *sock, struct socket *newsock)
 static int tsem_socket_listen(struct socket *sock, int backlog)
 
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "family=%u, type=%u, port=%u",
-			  sk->sk_family, sock->type, sk->sk_num);
-		return trapped_task(TSEM_SOCKET_LISTEN, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1227,16 +972,8 @@ static int tsem_socket_listen(struct socket *sock, int backlog)
 
 static int tsem_socket_socketpair(struct socket *socka, struct socket *sockb)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct sock *ska = socka->sk, *skb = sockb->sk;
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "family a=%u, family b=%u",
-			  ska->sk_family, skb->sk_family);
-		return trapped_task(TSEM_SOCKET_SOCKETPAIR, msg,
-					   NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1254,15 +991,8 @@ static int tsem_socket_socketpair(struct socket *socka, struct socket *sockb)
 static int tsem_socket_sendmsg(struct socket *sock, struct msghdr *msgmsg,
 			       int size)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "family=%u, size=%d",
-			  sk->sk_family, size);
-		return trapped_task(TSEM_SOCKET_SENDMSG, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1280,15 +1010,8 @@ static int tsem_socket_sendmsg(struct socket *sock, struct msghdr *msgmsg,
 static int tsem_socket_recvmsg(struct socket *sock, struct msghdr *msgmsg,
 			       int size, int flags)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "family=%u, size=%d, flags=%d",
-			  sk->sk_family, size, flags);
-		return trapped_task(TSEM_SOCKET_RECVMSG, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1306,15 +1029,8 @@ static int tsem_socket_recvmsg(struct socket *sock, struct msghdr *msgmsg,
 
 static int tsem_socket_getsockname(struct socket *sock)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "family=%u", sk->sk_family);
-		return trapped_task(TSEM_SOCKET_GETSOCKNAME, msg,
-					   NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1330,15 +1046,8 @@ static int tsem_socket_getsockname(struct socket *sock)
 
 static int tsem_socket_getpeername(struct socket *sock)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "family=%u", sk->sk_family);
-		return trapped_task(TSEM_SOCKET_GETPEERNAME, msg,
-					   NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1354,16 +1063,8 @@ static int tsem_socket_getpeername(struct socket *sock)
 
 static int tsem_socket_setsockopt(struct socket *sock, int level, int optname)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "family=%u, level=%d, optname=%d",
-			  sk->sk_family, level, optname);
-		return trapped_task(TSEM_SOCKET_SETSOCKOPT, msg,
-					   NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1381,15 +1082,8 @@ static int tsem_socket_setsockopt(struct socket *sock, int level, int optname)
 
 static int tsem_socket_shutdown(struct socket *sock, int how)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "family=%u, how=%d",
-			  sk->sk_family, how);
-		return trapped_task(TSEM_SOCKET_SHUTDOWN, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1406,17 +1100,10 @@ static int tsem_socket_shutdown(struct socket *sock, int how)
 
 static int tsem_kernel_module_request(char *kmod_name)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "module=%s", kmod_name);
-		return trapped_task(TSEM_KERNEL_MODULE_REQUEST, msg,
-					   NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1432,14 +1119,7 @@ static int tsem_kernel_module_request(char *kmod_name)
 
 static int tsem_kernel_load_data(enum kernel_load_data_id id, bool contents)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "id=%d, contents=%d", id,
-			  contents);
-		return trapped_task(TSEM_KERNEL_LOAD_DATA, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1458,16 +1138,7 @@ static int tsem_kernel_load_data(enum kernel_load_data_id id, bool contents)
 static int tsem_kernel_read_file(struct file *file,
 				 enum kernel_read_file_id id, bool contents)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "filename=%s, flags=0x%x, id=%d, contents=%d",
-			  file->f_path.dentry->d_name.name, file->f_flags,
-			  id, contents);
-		return trapped_task(TSEM_KERNEL_READ_FILE, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1486,17 +1157,10 @@ static int tsem_kernel_read_file(struct file *file,
 static int tsem_sb_mount(const char *dev_name, const struct path *path,
 			 const char *type, unsigned long flags, void *data)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "device=%s, type=%s, flags=%lu",
-			  dev_name, type, flags);
-		return trapped_task(TSEM_SB_MOUNT, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1515,14 +1179,7 @@ static int tsem_sb_mount(const char *dev_name, const struct path *path,
 
 static	int tsem_sb_umount(struct vfsmount *mnt, int flags)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "root=%s, flags=%d",
-			  mnt->mnt_root->d_name.name, flags);
-		return trapped_task(TSEM_SB_UMOUNT, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1539,17 +1196,10 @@ static	int tsem_sb_umount(struct vfsmount *mnt, int flags)
 
 static int tsem_sb_remount(struct super_block *sb, void *mnt_opts)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "fstype=%s, type=%s",
-			  sb->s_type->name, sb->s_root->d_name.name);
-		return trapped_task(TSEM_SB_REMOUNT, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1566,15 +1216,7 @@ static int tsem_sb_remount(struct super_block *sb, void *mnt_opts)
 static int tsem_sb_pivotroot(const struct path *old_path,
 			     const struct path *new_path)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "%s -> %s",
-			  old_path->dentry->d_name.name,
-			  new_path->dentry->d_name.name);
-		return trapped_task(TSEM_SB_PIVOTROOT, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1591,13 +1233,7 @@ static int tsem_sb_pivotroot(const struct path *old_path,
 
 static int tsem_sb_statfs(struct dentry *dentry)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "name=%s", dentry->d_name.name);
-		return trapped_task(TSEM_SB_STATFS, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1614,15 +1250,7 @@ static int tsem_sb_statfs(struct dentry *dentry)
 static int tsem_move_mount(const struct path *from_path,
 			   const struct path *to_path)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "%s -> %s",
-			  from_path->dentry->d_name.name,
-			  to_path->dentry->d_name.name);
-		return trapped_task(TSEM_MOVE_MOUNT, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1639,14 +1267,7 @@ static int tsem_move_mount(const struct path *from_path,
 
 static int tsem_shm_associate(struct kern_ipc_perm *perm, int shmflg)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "id=%d, mode=%u, flags=%d",
-			  perm->id, perm->mode, shmflg);
-		return trapped_task(TSEM_SHM_ASSOCIATE, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1663,14 +1284,7 @@ static int tsem_shm_associate(struct kern_ipc_perm *perm, int shmflg)
 
 static int tsem_shm_shmctl(struct kern_ipc_perm *perm, int cmd)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "id=%d, mode=%u, cmd=%d",
-			  perm->id, perm->mode, cmd);
-		return trapped_task(TSEM_SHM_SHMCTL, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1688,14 +1302,7 @@ static int tsem_shm_shmctl(struct kern_ipc_perm *perm, int cmd)
 static int tsem_shm_shmat(struct kern_ipc_perm *perm, char __user *shmaddr,
 			  int shmflg)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "id=%d, mode=%u, flag=%d",
-			  perm->id, perm->mode, shmflg);
-		return trapped_task(TSEM_SHM_SHMAT, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1712,14 +1319,7 @@ static int tsem_shm_shmat(struct kern_ipc_perm *perm, char __user *shmaddr,
 
 static int tsem_sem_associate(struct kern_ipc_perm *perm, int semflg)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "id=%d, mode=%u, flag=%d",
-			  perm->id, perm->mode, semflg);
-		return trapped_task(TSEM_SEM_ASSOCIATE, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1736,14 +1336,7 @@ static int tsem_sem_associate(struct kern_ipc_perm *perm, int semflg)
 
 static int tsem_sem_semctl(struct kern_ipc_perm *perm, int cmd)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "id=%d, mode=%u, cmd=%d",
-			  perm->id, perm->mode, cmd);
-		return trapped_task(TSEM_SEM_SEMCTL, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1761,15 +1354,7 @@ static int tsem_sem_semctl(struct kern_ipc_perm *perm, int cmd)
 static int tsem_sem_semop(struct kern_ipc_perm *perm, struct sembuf *sops,
 			  unsigned int nsops, int alter)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "id=%d, mode=%u, nsops=%u, alter=%d", perm->id,
-			  perm->mode, nsops, alter);
-		return trapped_task(TSEM_SEM_SEMOP, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1787,13 +1372,7 @@ static int tsem_sem_semop(struct kern_ipc_perm *perm, struct sembuf *sops,
 
 static int tsem_syslog(int type)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "type=%d", type);
-		return trapped_task(TSEM_SYSLOG, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1809,16 +1388,7 @@ static int tsem_syslog(int type)
 
 static int tsem_settime(const struct timespec64 *ts, const struct timezone *tz)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "secs=%lld, nsecs=%ld, mwest=%d, dsttime=%d",
-			  ts->tv_sec, ts->tv_nsec, tz->tz_minuteswest,
-			  tz->tz_dsttime);
-		return trapped_task(TSEM_SETTIME, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1844,15 +1414,7 @@ static int tsem_settime(const struct timespec64 *ts, const struct timezone *tz)
 static int tsem_quotactl(int cmds, int type, int id,
 			 const struct super_block *sb)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "cmds=%d, type=%d, id=%d, fstype=%s, type=%s", cmds,
-			  type, id, sb->s_type->name, sb->s_root->d_name.name);
-		return trapped_task(TSEM_QUOTACTL, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1871,13 +1433,7 @@ static int tsem_quotactl(int cmds, int type, int id,
 
 static int tsem_quota_on(struct dentry *dentry)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "name=%s", dentry->d_name.name);
-		return trapped_task(TSEM_QUOTA_ON, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1893,15 +1449,7 @@ static int tsem_quota_on(struct dentry *dentry)
 
 static int tsem_msg_queue_associate(struct kern_ipc_perm *perm, int msqflg)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "id=%d, mode=%u, msqflg=%d", perm->id, perm->mode,
-			  msqflg);
-		return trapped_task(TSEM_MSG_QUEUE_ASSOCIATE, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1920,15 +1468,7 @@ static int tsem_msg_queue_msgsnd(struct kern_ipc_perm *perm,
 				 struct msg_msg *msgmsg, int msqflg)
 
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "id=%d, mode=%u, msqflg=%d", perm->id, perm->mode,
-			  msqflg);
-		return trapped_task(TSEM_MSG_QUEUE_MSGSND, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1945,15 +1485,7 @@ static int tsem_msg_queue_msgsnd(struct kern_ipc_perm *perm,
 
 static int tsem_msg_queue_msgctl(struct kern_ipc_perm *perm, int cmd)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "id=%d, mode=%u, cmd=%d", perm->id, perm->mode,
-			  cmd);
-		return trapped_task(TSEM_MSG_QUEUE_MSGCTL, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -1973,15 +1505,7 @@ static int tsem_msg_queue_msgrcv(struct kern_ipc_perm *perm,
 				 struct task_struct *target, long type,
 				 int mode)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "id=%d, mode=%u, target=%s, type=%ld, mode=%d",
-			  perm->id, perm->mode, target->comm, type, mode);
-		return trapped_task(TSEM_MSG_QUEUE_MSGRCV, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2008,17 +1532,7 @@ static int tsem_ipc_alloc(struct kern_ipc_perm *kipc)
 
 static int tsem_ipc_permission(struct kern_ipc_perm *ipcp, short flag)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "uid=%d, gid=%d, mode=%u, flag=%u",
-			  from_kuid(&init_user_ns, ipcp->uid),
-			  from_kgid(&init_user_ns, ipcp->gid), ipcp->mode,
-			  flag);
-		return trapped_task(TSEM_IPC_PERMISSION, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2037,21 +1551,10 @@ static int tsem_ipc_permission(struct kern_ipc_perm *ipcp, short flag)
 static int tsem_key_alloc(struct key *key, const struct cred *cred,
 			  unsigned long flags)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "uid=%d, gid=%d, euid=%d, egid=%d, flags=%lu",
-			  from_kuid(&init_user_ns, cred->uid),
-			  from_kgid(&init_user_ns, cred->gid),
-			  from_kuid(&init_user_ns, cred->euid),
-			  from_kgid(&init_user_ns, cred->egid), flags);
-		return trapped_task(TSEM_KEY_ALLOC, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2069,21 +1572,10 @@ static int tsem_key_alloc(struct key *key, const struct cred *cred,
 static int tsem_key_permission(key_ref_t key_ref, const struct cred *cred,
 			       unsigned int perm)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "uid=%d, gid=%d, euid=%d, egid=%d, perm=%u",
-			  from_kuid(&init_user_ns, cred->uid),
-			  from_kgid(&init_user_ns, cred->gid),
-			  from_kuid(&init_user_ns, cred->euid),
-			  from_kgid(&init_user_ns, cred->egid), perm);
-		return trapped_task(TSEM_KEY_PERMISSION, msg, LOCKED);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2102,18 +1594,7 @@ static int tsem_key_permission(key_ref_t key_ref, const struct cred *cred,
 
 static int tsem_netlink_send(struct sock *sk, struct sk_buff *skb)
 {
-	char msg[TRAPPED_MSG_LENGTH];
-	struct scm_creds *cred;
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		cred = NETLINK_CREDS(skb);
-		scnprintf(msg, sizeof(msg),
-			  "uid=%d, gid=%d",
-			  from_kuid(&init_user_ns, cred->uid),
-			  from_kgid(&init_user_ns, cred->gid));
-		return trapped_task(TSEM_NETLINK_SEND, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2131,17 +1612,10 @@ static int tsem_netlink_send(struct sock *sk, struct sk_buff *skb)
 static int tsem_inode_create(struct inode *dir, struct dentry *dentry,
 			     umode_t mode)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "name=%s, mode=%u",
-			  dentry->d_name.name, mode);
-		return trapped_inode(TSEM_INODE_CREATE, dir, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2162,18 +1636,10 @@ static int tsem_inode_create(struct inode *dir, struct dentry *dentry,
 static int tsem_inode_link(struct dentry *old_dentry, struct inode *dir,
 			   struct dentry *new_dentry)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "old_name=%s, new_name=%s",
-			  old_dentry->d_name.name, new_dentry->d_name.name);
-		return trapped_task(TSEM_INODE_LINK, msg, NOLOCK);
-	}
-
 
 	if (bypass_event())
 		return 0;
@@ -2194,13 +1660,7 @@ static int tsem_inode_link(struct dentry *old_dentry, struct inode *dir,
 
 static int tsem_inode_unlink(struct inode *dir, struct dentry *dentry)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "target=%s", dentry->d_name.name);
-		return trapped_inode(TSEM_INODE_UNLINK, dir, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2221,16 +1681,10 @@ static int tsem_inode_unlink(struct inode *dir, struct dentry *dentry)
 static int tsem_inode_symlink(struct inode *dir, struct dentry *dentry,
 			      const char *old_name)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "target=%s", dentry->d_name.name);
-		return trapped_task(TSEM_INODE_SYMLINK, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2251,17 +1705,10 @@ static int tsem_inode_symlink(struct inode *dir, struct dentry *dentry,
 static int tsem_inode_mkdir(struct inode *dir, struct dentry *dentry,
 			    umode_t mode)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "target=%s, mode=%u",
-			  dentry->d_name.name, mode);
-		return trapped_task(TSEM_INODE_MKDIR, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2281,13 +1728,7 @@ static int tsem_inode_mkdir(struct inode *dir, struct dentry *dentry,
 
 static int tsem_inode_rmdir(struct inode *dir, struct dentry *dentry)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "name=%s", dentry->d_name.name);
-		return trapped_task(TSEM_INODE_RMDIR, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2308,14 +1749,7 @@ static int tsem_inode_rmdir(struct inode *dir, struct dentry *dentry)
 static int tsem_inode_rename(struct inode *old_dir, struct dentry *old_dentry,
 			     struct inode *new_dir, struct dentry *new_dentry)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "old=%s, new=%s",
-			  old_dentry->d_name.name, new_dentry->d_name.name);
-		return trapped_task(TSEM_INODE_RENAME, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2337,17 +1771,10 @@ static int tsem_inode_rename(struct inode *old_dir, struct dentry *old_dentry,
 static int tsem_inode_mknod(struct inode *dir, struct dentry *dentry,
 			    umode_t mode, dev_t dev)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "name=%s, mode=%u, dev=%u",
-			  dentry->d_name.name, mode, dev);
-		return trapped_task(TSEM_INODE_MKNOD, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2367,21 +1794,10 @@ static int tsem_inode_mknod(struct inode *dir, struct dentry *dentry,
 static int tsem_inode_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
 			      struct iattr *attr)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "name=%s, mode=%u, uid=%d, gid=%d, size=%llu",
-			  dentry->d_name.name, attr->ia_mode,
-			  from_kuid(&init_user_ns, attr->ia_uid),
-			  from_kgid(&init_user_ns, attr->ia_gid),
-			  attr->ia_size);
-		return trapped_task(TSEM_INODE_SETATTR, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2400,17 +1816,10 @@ static int tsem_inode_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
 
 static int tsem_inode_getattr(const struct path *path)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "name=%s",
-			  path->dentry->d_name.name);
-		return trapped_task(TSEM_INODE_GETATTR, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2430,15 +1839,7 @@ static int tsem_inode_setxattr(struct mnt_idmap *idmap,
 			       struct dentry *dentry, const char *name,
 			       const void *value, size_t size, int flags)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "fname=%s, name=%s, size=%lu, flags=%d",
-			  dentry->d_name.name, name, size, flags);
-		return trapped_task(TSEM_INODE_SETXATTR, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2460,17 +1861,10 @@ static int tsem_inode_setxattr(struct mnt_idmap *idmap,
 
 static int tsem_inode_getxattr(struct dentry *dentry, const char *name)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep = NULL;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg),
-			  "fname=%s, name=%s", dentry->d_name.name, name);
-		return trapped_task(TSEM_INODE_GETXATTR, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2489,16 +1883,10 @@ static int tsem_inode_getxattr(struct dentry *dentry, const char *name)
 
 static int tsem_inode_listxattr(struct dentry *dentry)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "fname=%s", dentry->d_name.name);
-		return trapped_task(TSEM_INODE_LISTXATTR, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2517,14 +1905,7 @@ static int tsem_inode_listxattr(struct dentry *dentry)
 static int tsem_inode_removexattr(struct mnt_idmap *idmap,
 				  struct dentry *dentry, const char *name)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "fname=%s, name=%s",
-			  dentry->d_name.name, name);
-		return trapped_task(TSEM_INODE_REMOVEXATTR, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2544,13 +1925,7 @@ static int tsem_inode_removexattr(struct mnt_idmap *idmap,
 static int tsem_inode_killpriv(struct mnt_idmap *idmap,
 			       struct dentry *dentry)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "fname=%s", dentry->d_name.name);
-		return trapped_task(TSEM_INODE_KILLPRIV, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2568,9 +1943,6 @@ static int tsem_tun_dev_create(void)
 {
 	struct tsem_event *ep;
 
-	if (tsem_task_untrusted(current))
-		return trapped_task(TSEM_TUN_DEV_CREATE, "none", NOLOCK);
-
 	if (bypass_event())
 		return 0;
 
@@ -2586,9 +1958,6 @@ static int tsem_tun_dev_attach_queue(void *security)
 {
 	struct tsem_event *ep;
 
-	if (tsem_task_untrusted(current))
-		return trapped_task(TSEM_TUN_DEV_ATTACH_QUEUE, "none", NOLOCK);
-
 	if (bypass_event())
 		return 0;
 
@@ -2602,13 +1971,7 @@ static int tsem_tun_dev_attach_queue(void *security)
 
 static int tsem_tun_dev_attach(struct sock *sk, void *security)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "family=%u", sk->sk_family);
-		return trapped_task(TSEM_TUN_DEV_ATTACH, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2626,9 +1989,6 @@ static int tsem_tun_dev_open(void *security)
 {
 	struct tsem_event *ep;
 
-	if (tsem_task_untrusted(current))
-		return trapped_task(TSEM_TUN_DEV_OPEN, "none", NOLOCK);
-
 	if (bypass_event())
 		return 0;
 
@@ -2643,13 +2003,7 @@ static int tsem_tun_dev_open(void *security)
 #ifdef CONFIG_BPF_SYSCALL
 static int tsem_bpf(int cmd, union bpf_attr *attr, unsigned int size)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "cmd=%d, size=%u", cmd, size);
-		return trapped_task(TSEM_BPF, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2666,14 +2020,7 @@ static int tsem_bpf(int cmd, union bpf_attr *attr, unsigned int size)
 
 static int tsem_bpf_map(struct bpf_map *map, fmode_t fmode)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "type=%d, size=%u", map->map_type,
-			  fmode);
-		return trapped_task(TSEM_BPF_MAP, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
@@ -2690,13 +2037,7 @@ static int tsem_bpf_map(struct bpf_map *map, fmode_t fmode)
 
 static int tsem_bpf_prog(struct bpf_prog *prog)
 {
-	char msg[TRAPPED_MSG_LENGTH];
 	struct tsem_event *ep;
-
-	if (tsem_task_untrusted(current)) {
-		scnprintf(msg, sizeof(msg), "type=%d", prog->type);
-		return trapped_task(TSEM_BPF_PROG, msg, NOLOCK);
-	}
 
 	if (bypass_event())
 		return 0;
