@@ -422,7 +422,9 @@ int tsem_ns_create(const enum tsem_control_type type, const char *digest,
 }
 
 /**
- * tsem_ns_export() - Configure root namespace for export only modeling.
+ * tsem_ns_export_root() - Configure root namespace for export only modeling.
+ * @magazine_size:  The number of entries to be implemented in the event
+ *		    cache.
  *
  * This function is called to setup the root security modeling namespace
  * for the export of security event descriptions in tsem_mode=2
@@ -432,7 +434,7 @@ int tsem_ns_create(const enum tsem_control_type type, const char *digest,
  *	   for export was successul and a negative error value if
  *	   the setup fails.
  */
-int tsem_ns_export(void)
+int tsem_ns_export_root(unsigned int magazine_size)
 {
 	int retn = -ENOMEM;
 	struct tsem_context *new_ctx;
@@ -450,8 +452,7 @@ int tsem_ns_export(void)
 		goto done;
 	}
 
-	retn = tsem_export_magazine_allocate(new_ctx->external,
-					     5 * TSEM_MAGAZINE_SIZE_EXTERNAL);
+	retn = tsem_export_magazine_allocate(new_ctx->external, magazine_size);
 	if (retn)
 		goto done;
 

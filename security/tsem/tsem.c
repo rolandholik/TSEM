@@ -2318,7 +2318,7 @@ static int __init set_ready(void)
 		goto done;
 
 	if (tsem_mode == EXPORT_ONLY) {
-		retn = tsem_ns_export();
+		retn = tsem_ns_export_root(magazine_size);
 		if (retn)
 			goto done;
 	}
