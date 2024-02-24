@@ -150,11 +150,35 @@ static struct tsem_external *allocate_export(u64 context_id)
 	return external;
 }
 
+static void _release_inode_instances(u64 id, struct tsem_inode *tsip)
+{
+	struct tsem_inode_instance *owner, *tmp_owner;
+
+	mutex_lock(&tsip->instance_mutex);
+	list_for_each_entry_safe(owner, tmp_owner, &tsip->instance_list,
+				 list) {
+		if (id == owner->creator) {
+			list_del(&owner->list);
+			kfree(owner);
+		}
+	}
+	mutex_unlock(&tsip->instance_mutex);
+}
+
 static void wq_put(struct work_struct *work)
 {
 	struct tsem_context *ctx;
+	struct tsem_inode_entry *ie, *tmp_ie;
 
 	ctx = container_of(work, struct tsem_context, work);
+
+	mutex_lock(&ctx->inode_mutex);
+	list_for_each_entry_safe(ie, tmp_ie, &ctx->inode_list, list) {
+		list_del(&ie->list);
+		_release_inode_instances(ctx->id, ie->tsip);
+		kfree(ie);
+	}
+	mutex_unlock(&ctx->inode_mutex);
 
 	if (ctx->external) {
 		mutex_lock(&context_id_mutex);
@@ -362,6 +386,9 @@ int tsem_ns_create(const enum tsem_control_type type, const char *digest,
 	new_ctx->digestname = use_digest;
 	memcpy(new_ctx->zero_digest, zero_digest,
 	       crypto_shash_digestsize(tfm));
+
+	mutex_init(&new_ctx->inode_mutex);
+	INIT_LIST_HEAD(&new_ctx->inode_list);
 
 	if (ns == TSEM_NS_CURRENT)
 		new_ctx->use_current_ns = true;
