@@ -852,10 +852,37 @@ static int tsem_inode_init_security(struct inode *inode, struct inode *dir,
 	return -EOPNOTSUPP;
 }
 
+static void _release_inode_instances(u64 id, struct tsem_inode *tsip)
+{
+	struct tsem_inode_instance *owner, *tmp_owner;
+
+	mutex_lock(&tsip->instance_mutex);
+	list_for_each_entry_safe(owner, tmp_owner, &tsip->instance_list,
+				 list) {
+		if (id == owner->creator) {
+			list_del(&owner->list);
+			kfree(owner);
+		}
+	}
+	mutex_unlock(&tsip->instance_mutex);
+}
+
 static void tsem_inode_free_security(struct inode *inode)
 {
 	struct tsem_inode_instance *owner, *tmp_owner;
 	struct tsem_inode_digest *digest, *tmp_digest;
+	struct tsem_inode_entry *entry, *tmp_entry;
+	struct tsem_context *ctx = tsem_context(current);
+
+	mutex_lock(&ctx->inode_mutex);
+	list_for_each_entry_safe(entry, tmp_entry, &ctx->inode_list, list) {
+		if (entry->tsip == tsem_inode(inode)) {
+			list_del(&entry->list);
+			_release_inode_instances(ctx->id, entry->tsip);
+			kfree(entry);
+		}
+	}
+	mutex_unlock(&ctx->inode_mutex);
 
 	list_for_each_entry_safe(digest, tmp_digest,
 				 &tsem_inode(inode)->digest_list, list) {
@@ -2332,6 +2359,9 @@ static int __init tsem_init(void)
 	tsk->context = ctx;
 	kref_init(&ctx->kref);
 	kref_get(&ctx->kref);
+
+	mutex_init(&ctx->inode_mutex);
+	INIT_LIST_HEAD(&ctx->inode_list);
 
 	root_context.model = &root_model;
 

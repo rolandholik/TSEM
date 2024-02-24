@@ -54,22 +54,51 @@ static void refill_event_magazine(struct work_struct *work)
 	}
 }
 
-static int register_inode_create(struct inode *inode, u64 instance,
+static int register_directory(struct tsem_inode *tsip)
+{
+	int retn = 0;
+	struct tsem_inode_entry *entry = NULL;
+	struct tsem_context *ctx = tsem_context(current);
+
+	mutex_lock(&ctx->inode_mutex);
+	list_for_each_entry(entry, &ctx->inode_list, list) {
+		if (entry->tsip == tsip)
+			goto done;
+	}
+
+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	if (!entry) {
+		retn = -ENOMEM;
+		goto done;
+	}
+
+	entry->tsip = tsip;
+	list_add_tail(&entry->list, &ctx->inode_list);
+
+ done:
+	mutex_unlock(&ctx->inode_mutex);
+	return retn;
+}
+
+static int register_inode_create(struct inode *dir, u64 instance,
 				 char *pathname)
 {
 	char *p;
-	struct tsem_inode_instance *tio;
-	struct tsem_inode *tsip = tsem_inode(inode);
+	int retn;
+	struct tsem_inode_instance *tio = NULL;
+	struct tsem_inode *tsip = tsem_inode(dir);
+
+	p = strrchr(pathname, '/');
+	if (!p)
+		return -EINVAL;
+
+	retn = register_directory(tsip);
+	if (retn)
+		return retn;
 
 	tio = kzalloc(sizeof(*tio), GFP_KERNEL);
 	if (!tio)
 		return -ENOMEM;
-
-	p = strrchr(pathname, '/');
-	if (!p) {
-		kfree(tio);
-		return -EINVAL;
-	}
 
 	tio->pathname = ++p;
 	tio->creator = tsem_context(current)->id;
@@ -563,6 +592,7 @@ static u64 _get_task_inode_instance(struct tsem_inode *tsip)
 		if (entry) {
 			instance = 1;
 			entry->instance = instance;
+			entry->creator = tsem_context(current)->id;
 			memcpy(entry->owner, task_id, tsem_digestsize());
 			list_add_tail(&entry->list, &tsip->instance_list);
 		}

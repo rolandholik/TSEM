@@ -457,6 +457,9 @@ struct tsem_task {
  * @zero_digest: The digest value for a 'zero-length' digest value.
  * @tfm: A pointer to the digest transformation structure that is to
  *	 be used for this context.
+ * @inode_mutex: The lock that protects the list of inodes that are
+ *		 created in a security modeling namespace.
+ * @inode_list: The list of inodes created in a security modeling namespace.
  * @magazine_size: The number of struct tsem_event structures that
  *		   are held in reserve for security event hooks that
  *		   are called in atomic context.
@@ -563,6 +566,9 @@ struct tsem_context {
 	char *digestname;
 	u8 zero_digest[HASH_MAX_DIGESTSIZE];
 	struct crypto_shash *tfm;
+
+	struct mutex inode_mutex;
+	struct list_head inode_list;
 
 	unsigned int magazine_size;
 	spinlock_t magazine_lock;
@@ -954,6 +960,25 @@ struct tsem_inode_cell {
 	u32 s_magic;
 	u8 s_id[32];
 	u8 s_uuid[16];
+};
+
+/**
+ * struct tsem_inode_entry - Reference to a directory inode with temp files.
+ * @list: List of inodes for a security modeling namespace that have
+ *	  had temporary filescreated in them.
+ * @tsip: A pointer to a TSEM inode containing temporary files.
+ *
+ * This structure is used to implement a list of directory inodes that
+ * have had temporary files created under them in a security modeling
+ * namespace.  This list is used to allow the instance identifiers
+ * for inodes to be removed when the security modeling namespace
+ * terminates or when the directory in which temporary files had been
+ * created is emoved.
+ */
+
+struct tsem_inode_entry {
+	struct list_head list;
+	struct tsem_inode *tsip;
 };
 
 /**
