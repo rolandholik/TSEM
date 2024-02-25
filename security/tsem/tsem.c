@@ -2258,7 +2258,6 @@ static int configure_root_digest(void)
 	int retn = 0;
 	char *digest = NULL;
 	u8 zero_digest[HASH_MAX_DIGESTSIZE];
-	unsigned int digestsize;
 	struct crypto_shash *tfm;
 	SHASH_DESC_ON_STACK(shash, tfm);
 
@@ -2287,7 +2286,8 @@ static int configure_root_digest(void)
 		goto done;
 
 	tsem_context(current)->tfm = tfm;
-	memcpy(root_context.zero_digest, zero_digest, digestsize);
+	memcpy(root_context.zero_digest, zero_digest,
+	       crypto_shash_digestsize(tfm));
 
  done:
 	if (retn) {
