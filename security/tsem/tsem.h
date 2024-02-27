@@ -949,11 +949,6 @@ struct tsem_COE {
  *
  */
 struct tsem_inode_cell {
-	bool created;
-	u64 creator;
-	u64 instance;
-	u8 owner[HASH_MAX_DIGESTSIZE];
-
 	uid_t uid;
 	gid_t gid;
 	umode_t mode;

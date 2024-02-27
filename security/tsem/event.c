@@ -498,7 +498,6 @@ static void fill_inode(struct inode *inode, struct tsem_inode_cell *ip)
 	ip->s_magic = inode->i_sb->s_magic;
 	memcpy(ip->s_id, inode->i_sb->s_id, sizeof(ip->s_id));
 	memcpy(ip->s_uuid, inode->i_sb->s_uuid.b, sizeof(ip->s_uuid));
-	memcpy(ip->owner, tsem_inode(inode)->owner, tsem_digestsize());
 }
 
 static void fill_creds(const struct cred *cp, struct tsem_COE *tcp)
@@ -540,10 +539,11 @@ static int fill_dentry(struct dentry *dp, struct tsem_dentry *dentry)
 		fill_inode(d_backing_inode(dp), &dentry->inode);
 
 		tsip = tsem_inode(d_backing_inode(dp));
-		dentry->inode.created = tsip->created;
-		dentry->inode.creator = tsip->creator;
-		dentry->inode.instance = tsip->instance;
-		memcpy(dentry->inode.owner, tsip->owner, tsem_digestsize());
+		dentry->path.created = tsip->created;
+		dentry->path.creator = tsip->creator;
+		dentry->path.instance = tsip->instance;
+		memcpy(dentry->path.owner, tsem_task(current)->task_id,
+		       tsem_digestsize());
 	}
 
 	return 0;
@@ -564,10 +564,11 @@ static int fill_dentry_path(const struct path *path,
 		fill_inode(d_backing_inode(path->dentry), &dentry->inode);
 
 		tsip = tsem_inode(d_backing_inode(path->dentry));
-		dentry->inode.created = tsip->created;
-		dentry->inode.creator = tsip->creator;
-		dentry->inode.instance = tsip->instance;
-		memcpy(dentry->inode.owner, tsip->owner, tsem_digestsize());
+		dentry->path.created = tsip->created;
+		dentry->path.creator = tsip->creator;
+		dentry->path.instance = tsip->instance;
+		memcpy(dentry->path.owner, tsem_task(current)->task_id,
+		       tsem_digestsize());
 	}
 
 	return 0;
@@ -618,12 +619,6 @@ static int get_inode_create(struct tsem_inode_args *args)
 	retn = fill_dentry(dentry, &args->out.dentry);
 	if (retn)
 		return retn;
-
-	args->out.dentry.inode.created = true;
-	args->out.dentry.inode.creator = tsem_context(current)->id;
-	args->out.dentry.inode.instance = instance;
-	memcpy(args->out.dentry.inode.owner, tsem_task(current)->task_id,
-	       tsem_digestsize());
 
 	args->out.dentry.path.created = true;
 	args->out.dentry.path.creator = tsem_context(current)->id;
