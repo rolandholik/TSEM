@@ -229,11 +229,11 @@ static int add_dentry(struct shash_desc *shash, struct tsem_dentry *dentry)
 			goto done;
 	}
 
-	if (dentry->inode.created &&
-	    dentry->inode.creator == tsem_context(current)->id) {
+	if (dentry->path.created &&
+	    dentry->path.creator == tsem_context(current)->id) {
 		retn = add_temp_path(shash, dentry->path.pathname,
-				     dentry->inode.instance,
-				     dentry->inode.owner);
+				     dentry->path.instance,
+				     dentry->path.owner);
 	} else
 		retn = add_str(shash, dentry->path.pathname);
 
