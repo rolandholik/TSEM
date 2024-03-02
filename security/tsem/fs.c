@@ -565,7 +565,6 @@ static void show_socket_info(struct seq_file *c, const char *key, char *term,
 	tsem_fs_show_key(c, "family", ",", "%d", args->family);
 	tsem_fs_show_key(c, "type", ",", "%d", args->type);
 	tsem_fs_show_key(c, "protocol", ",", "%d", args->protocol);
-	tsem_fs_show_key(c, "kern", ",", "%d", args->kern);
 	tsem_fs_show_key(c, "owner", "}", "%*phN", tsem_digestsize(),
 			 args->owner);
 
