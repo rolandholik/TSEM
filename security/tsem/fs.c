@@ -742,7 +742,7 @@ static void show_socket_accept(struct seq_file *c, struct tsem_event *ep)
 		break;
 	case AF_UNIX:
 		tsem_fs_show_field(c, "af_unix");
-		tsem_fs_show_key(c, "addr", "}}}", "%s", args->out.path);
+		tsem_fs_show_key(c, "address", "}}}", "%s", args->out.path);
 		break;
 	default:
 		tsem_fs_show_field(c, "af_other");
