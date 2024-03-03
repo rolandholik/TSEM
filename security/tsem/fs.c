@@ -2174,7 +2174,7 @@ int __init tsem_fs_init(void)
 	if (IS_ERR(aggregate))
 		goto err;
 
-	internal_tma = securityfs_create_dir("InternalTMA", tsem_dir);
+	internal_tma = securityfs_create_dir("internal_tma", tsem_dir);
 	if (IS_ERR(internal_tma))
 		goto err;
 
@@ -2227,7 +2227,7 @@ int __init tsem_fs_init(void)
 	if (IS_ERR(state))
 		goto err;
 
-	external_tma = securityfs_create_dir("ExternalTMA", tsem_dir);
+	external_tma = securityfs_create_dir("external_tma", tsem_dir);
 	if (IS_ERR(external_tma))
 		goto err;
 
