@@ -7025,8 +7025,10 @@
 
 	tsem_mode=	[TSEM] Set the mode that the Trusted Security Event
 			Modeling LSM is to run in.
-			Format: 1
-			1 -- Disable root domain modeling.
+			Format: <unsigned int>
+			1 -- Disable root security namespace modeling.
+			2 -- Only export security event descriptions from
+			     the root security modeling namespace.
 
 	tsx=		[X86] Control Transactional Synchronization
 			Extensions (TSX) feature in Intel processors that
