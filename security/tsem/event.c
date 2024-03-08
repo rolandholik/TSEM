@@ -427,7 +427,7 @@ static int add_file_digest(struct file *file, bool pseudo_file,
 	inode = file_inode(file);
 	tsip = tsem_inode(inode);
 
-	if (created_inode(tsip) || pseudo_file) {
+	if (created_inode(tsip) || pseudo_file || !S_ISREG(inode->i_mode)) {
 		memcpy(args->out.digest, ctx->zero_digest, tsem_digestsize());
 		return 0;
 	}
@@ -757,8 +757,6 @@ static int get_file_cell(struct tsem_file_args *args)
 
 	args->out.flags = file->f_flags;
 	fill_inode(inode, &args->out.inode);
-	if (!S_ISREG(inode->i_mode))
-		goto done;
 
 	retn = add_file_digest(file, pseudo_file, args);
 	if (retn)
