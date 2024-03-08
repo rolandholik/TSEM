@@ -344,6 +344,7 @@ static int tsem_file_ioctl(struct file *file, unsigned int cmd,
 
 	ep->CELL.file.cmd = cmd;
 	ep->CELL.file.in.file = file;
+	ep->CELL.file.in.pseudo_file = pseudo_filesystem(file_inode(file));
 
 	return dispatch_event(ep);
 }
@@ -361,6 +362,7 @@ static int tsem_file_lock(struct file *file, unsigned int cmd)
 
 	ep->CELL.file.cmd = cmd;
 	ep->CELL.file.in.file = file;
+	ep->CELL.file.in.pseudo_file = pseudo_filesystem(file_inode(file));
 
 	return dispatch_event(ep);
 }
@@ -381,6 +383,7 @@ static int tsem_file_fcntl(struct file *file, unsigned int cmd,
 
 	ep->CELL.file.cmd = cmd;
 	ep->CELL.file.in.file = file;
+	ep->CELL.file.in.pseudo_file = pseudo_filesystem(file_inode(file));
 
 	return dispatch_event(ep);
 }
@@ -397,6 +400,7 @@ static int tsem_file_receive(struct file *file)
 		return -ENOMEM;
 
 	ep->CELL.file.in.file = file;
+	ep->CELL.file.in.pseudo_file = pseudo_filesystem(file_inode(file));
 
 	return dispatch_event(ep);
 }
