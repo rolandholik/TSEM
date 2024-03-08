@@ -1120,6 +1120,8 @@ struct tsem_inode_args {
  * struct tsem_file_args - TSEM file argument description.
  * @cmd: The command argument for security handlers that take a
  *       command type arguement, ie. file_ioctl, file_fcntl, file_lock
+ * @in.pseudo_file: A flag indicating that the file was on a
+ *		    pseudo-filesystem and will not have a digest value.
  * @in.file: A structure to the file that will be modeled.
  * @out.path: A description of the pathname of the file.
  * @out.inode: A description of the inode that represents the file.
@@ -1136,8 +1138,8 @@ struct tsem_file_args {
 
 	union {
 		struct {
+			bool pseudo_file;
 			struct file *file;
-
 		} in;
 
 		struct {

@@ -222,7 +222,7 @@ static bool bypass_event(void)
 	return false;
 }
 
-static bool bypass_filesystem(struct inode *inode)
+static bool pseudo_filesystem(struct inode *inode)
 {
 	unsigned int lp;
 
@@ -279,11 +279,9 @@ static int tsem_file_open(struct file *file)
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
 		return 0;
-	if (bypass_filesystem(inode))
-		return 0;
+
 	if (!S_ISREG(inode->i_mode))
 		return 0;
 	if (tsem_inode(inode)->status == TSEM_INODE_COLLECTING)
@@ -294,6 +292,7 @@ static int tsem_file_open(struct file *file)
 		return -ENOMEM;
 
 	ep->CELL.file.in.file = file;
+	ep->CELL.file.in.pseudo_file = pseudo_filesystem(inode);
 
 	return dispatch_event(ep);
 }
@@ -306,7 +305,6 @@ static int tsem_mmap_file(struct file *file, unsigned long prot,
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
 		return 0;
 
@@ -316,7 +314,7 @@ static int tsem_mmap_file(struct file *file, unsigned long prot,
 		inode = file_inode(file);
 		if (!S_ISREG(inode->i_mode))
 			return 0;
-		if (bypass_filesystem(inode))
+		if (pseudo_filesystem(inode))
 			return 0;
 	}
 
@@ -338,9 +336,6 @@ static int tsem_file_ioctl(struct file *file, unsigned int cmd,
 	struct tsem_event *ep;
 
 	if (bypass_event())
-		return 0;
-
-	if (bypass_filesystem(file_inode(file)))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_FILE_IOCTL, NOLOCK);
@@ -377,10 +372,7 @@ static int tsem_file_fcntl(struct file *file, unsigned int cmd,
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
-		return 0;
-	if (bypass_filesystem(file_inode(file)))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_FILE_FCNTL, NOLOCK);
@@ -560,7 +552,6 @@ static int tsem_capable(const struct cred *cred, struct user_namespace *ns,
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
 		return 0;
 
@@ -952,7 +943,6 @@ static int tsem_socket_create(int family, int type, int protocol, int kern)
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
 		return 0;
 
@@ -1176,7 +1166,6 @@ static int tsem_kernel_module_request(char *kmod_name)
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
 		return 0;
 
@@ -1233,7 +1222,6 @@ static int tsem_sb_mount(const char *dev_name, const struct path *path,
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
 		return 0;
 
@@ -1272,7 +1260,6 @@ static int tsem_sb_remount(struct super_block *sb, void *mnt_opts)
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
 		return 0;
 
@@ -1626,7 +1613,6 @@ static int tsem_key_alloc(struct key *key, const struct cred *cred,
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
 		return 0;
 
@@ -1647,7 +1633,6 @@ static int tsem_key_permission(key_ref_t key_ref, const struct cred *cred,
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
 		return 0;
 
@@ -1687,7 +1672,6 @@ static int tsem_inode_create(struct inode *dir, struct dentry *dentry,
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
 		return 0;
 
@@ -1709,10 +1693,7 @@ static int tsem_inode_link(struct dentry *old_dentry, struct inode *dir,
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
-		return 0;
-	if (bypass_filesystem(dir))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_LINK, NOLOCK);
@@ -1733,10 +1714,7 @@ static int tsem_inode_unlink(struct inode *dir, struct dentry *dentry)
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
-		return 0;
-	if (bypass_filesystem(dir))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_UNLINK, NOLOCK);
@@ -1757,10 +1735,7 @@ static int tsem_inode_symlink(struct inode *dir, struct dentry *dentry,
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
-		return 0;
-	if (bypass_filesystem(dir))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_SYMLINK, NOLOCK);
@@ -1781,10 +1756,7 @@ static int tsem_inode_mkdir(struct inode *dir, struct dentry *dentry,
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
-		return 0;
-	if (bypass_filesystem(dir))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_MKDIR, NOLOCK);
@@ -1804,8 +1776,6 @@ static int tsem_inode_rmdir(struct inode *dir, struct dentry *dentry)
 
 	if (bypass_event())
 		return 0;
-	if (bypass_filesystem(dir))
-		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_RMDIR, NOLOCK);
 	if (!ep)
@@ -1824,8 +1794,6 @@ static int tsem_inode_rename(struct inode *old_dir, struct dentry *old_dentry,
 	struct tsem_event *ep;
 
 	if (bypass_event())
-		return 0;
-	if (bypass_filesystem(old_dir))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_RENAME, NOLOCK);
@@ -1847,7 +1815,6 @@ static int tsem_inode_mknod(struct inode *dir, struct dentry *dentry,
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
 		return 0;
 
@@ -1869,10 +1836,7 @@ static int tsem_inode_setattr(struct dentry *dentry, struct iattr *attr)
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
-		return 0;
-	if (bypass_filesystem(dentry->d_inode))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_SETATTR, NOLOCK);
@@ -1891,10 +1855,7 @@ static int tsem_inode_getattr(const struct path *path)
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
-		return 0;
-	if (bypass_filesystem(path->dentry->d_inode))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_GETATTR, NOLOCK);
@@ -1913,8 +1874,6 @@ static int tsem_inode_setxattr(struct user_namespace *mnt_userns,
 	struct tsem_event *ep;
 
 	if (bypass_event())
-		return 0;
-	if (bypass_filesystem(dentry->d_inode))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_SETXATTR, NOLOCK);
@@ -1936,10 +1895,7 @@ static int tsem_inode_getxattr(struct dentry *dentry, const char *name)
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
-		return 0;
-	if (bypass_filesystem(dentry->d_inode))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_GETXATTR, NOLOCK);
@@ -1958,10 +1914,7 @@ static int tsem_inode_listxattr(struct dentry *dentry)
 
 	if (unlikely(!tsem_ready))
 		return 0;
-
 	if (bypass_event())
-		return 0;
-	if (bypass_filesystem(dentry->d_inode))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_LISTXATTR, NOLOCK);
@@ -1979,8 +1932,6 @@ static int tsem_inode_removexattr(struct user_namespace *mnt,
 	struct tsem_event *ep;
 
 	if (bypass_event())
-		return 0;
-	if (bypass_filesystem(dentry->d_inode))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_REMOVEXATTR, NOLOCK);
