@@ -413,7 +413,8 @@ static int get_file_digest(struct file *file, struct inode *inode,
 	return retn;
 }
 
-static int add_file_digest(struct file *file, struct tsem_file_args *args)
+static int add_file_digest(struct file *file, bool pseudo_file,
+			   struct tsem_file_args *args)
 {
 	int retn = 0;
 	u8 measurement[HASH_MAX_DIGESTSIZE];
@@ -426,7 +427,7 @@ static int add_file_digest(struct file *file, struct tsem_file_args *args)
 	inode = file_inode(file);
 	tsip = tsem_inode(inode);
 
-	if (created_inode(tsip)) {
+	if (created_inode(tsip) || pseudo_file) {
 		memcpy(args->out.digest, ctx->zero_digest, tsem_digestsize());
 		return 0;
 	}
@@ -743,6 +744,7 @@ static int get_inode_killpriv(struct tsem_inode_args *args)
 static int get_file_cell(struct tsem_file_args *args)
 {
 	int retn = 1;
+	bool pseudo_file = args->in.pseudo_file;
 	struct file *file = args->in.file;
 	struct inode *inode = file_inode(file);
 
@@ -755,11 +757,10 @@ static int get_file_cell(struct tsem_file_args *args)
 
 	args->out.flags = file->f_flags;
 	fill_inode(inode, &args->out.inode);
-
 	if (!S_ISREG(inode->i_mode))
 		goto done;
 
-	retn = add_file_digest(file, args);
+	retn = add_file_digest(file, pseudo_file, args);
 	if (retn)
 		kfree(args->out.path.pathname);
 
@@ -1080,7 +1081,7 @@ static int get_kernel_file(struct tsem_kernel_args *args)
 	if (!S_ISREG(inode->i_mode))
 		goto done;
 
-	retn = add_file_digest(file, &args->out.file);
+	retn = add_file_digest(file, false, &args->out.file);
 	if (retn)
 		kfree(args->out.file.out.path.pathname);
 
