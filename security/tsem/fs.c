@@ -1849,9 +1849,13 @@ static const struct file_operations export_ops = {
  */
 struct dentry *tsem_fs_create_external(const char *name)
 {
+	struct dentry *dentry;
 
-	return securityfs_create_file(name, 0400, external_tma, NULL,
-				      &export_ops);
+	dentry = securityfs_create_file(name, 0400, external_tma, NULL,
+					&export_ops);
+	if (!IS_ERR(dentry))
+		tsem_inode(dentry->d_inode)->status = TSEM_INODE_CONTROL_PLANE;
+	return dentry;
 }
 
 /**
@@ -2135,6 +2139,15 @@ void tsem_fs_show_key(struct seq_file *c, char *key, char *term, char *fmt,
 		seq_printf(c, "\"%s", term);
 }
 
+static bool _init_inode(struct dentry *dp)
+{
+	if (IS_ERR(dp))
+		return false;
+
+	tsem_inode(dp->d_inode)->status = TSEM_INODE_CONTROL_PLANE;
+	return true;
+}
+
 /**
  * tesm_fs_init() - Initialize the TSEM control filesystem heirarchy
  *
@@ -2157,78 +2170,78 @@ int __init tsem_fs_init(void)
 	int retn = -1;
 
 	tsem_dir = securityfs_create_dir("tsem", NULL);
-	if (tsem_dir == NULL)
+	if (!_init_inode(tsem_dir))
 		goto done;
 
 	control = securityfs_create_file("control", 0200, tsem_dir, NULL,
 					 &control_ops);
-	if (IS_ERR(control))
+	if (!_init_inode(control))
 		goto err;
 
 	id = securityfs_create_file("id", 0400, tsem_dir, NULL, &id_ops);
-	if (IS_ERR(control))
+	if (!_init_inode(id))
 		goto err;
 
 	aggregate = securityfs_create_file("aggregate", 0400, tsem_dir, NULL,
 					   &aggregate_ops);
-	if (IS_ERR(aggregate))
+	if (!_init_inode(aggregate))
 		goto err;
 
 	internal_tma = securityfs_create_dir("internal_tma", tsem_dir);
-	if (IS_ERR(internal_tma))
+	if (!_init_inode(internal_tma))
 		goto err;
 
 	model = securityfs_create_dir("model0", internal_tma);
-	if (IS_ERR(model))
+	if (!_init_inode(model))
 		goto err;
 
 	forensics = securityfs_create_file("forensics", 0400, model, NULL,
 					   &forensics_ops);
-	if (IS_ERR(forensics))
+	if (!_init_inode(forensics))
 		goto err;
 
 	forensics_counts = securityfs_create_file("forensics_counts", 0400,
 						 model, NULL,
 						 &forensics_count_ops);
-	if (IS_ERR(forensics_counts))
+	if (!_init_inode(forensics_counts))
 		goto err;
 
 	forensics_coeff = securityfs_create_file("forensics_coefficients",
 						 0400, model, NULL,
 						 &forensics_point_ops);
-	if (IS_ERR(forensics_coeff))
+	if (!_init_inode(forensics_coeff))
 		goto err;
 
 	trajectory = securityfs_create_file("trajectory", 0400, model, NULL,
 					     &trajectory_ops);
-	if (IS_ERR(trajectory))
+	if (!_init_inode(trajectory))
 		goto err;
 
 	trajectory_counts = securityfs_create_file("trajectory_counts", 0400,
 						   model, NULL,
 						   &trajectory_count_ops);
-	if (IS_ERR(trajectory_counts))
+	if (!_init_inode(trajectory_counts))
 		goto err;
 
 	trajectory_coeff = securityfs_create_file("trajectory_coefficients",
 						  0400, model, NULL,
 						  &trajectory_point_ops);
-	if (IS_ERR(trajectory_coeff))
+	if (!_init_inode(trajectory_coeff))
 		goto err;
 
 	measurement = securityfs_create_file("measurement", 0400,
 						  model, NULL,
 						  &measurement_ops);
-	if (IS_ERR(measurement))
+	if (!_init_inode(measurement))
 		goto err;
 
 	state = securityfs_create_file("state", 0400, model, NULL,
 					&state_ops);
-	if (IS_ERR(state))
+	if (!_init_inode(state))
 		goto err;
 
 	external_tma = securityfs_create_dir("external_tma", tsem_dir);
-	if (IS_ERR(external_tma))
+	if (!_init_inode(external_tma))
 		goto err;
 
 	retn = 0;
