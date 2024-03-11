@@ -355,7 +355,8 @@ enum tsem_task_trust {
  */
 enum tsem_inode_state {
 	TSEM_INODE_COLLECTING = 1,
-	TSEM_INODE_COLLECTED
+	TSEM_INODE_COLLECTED,
+	TSEM_INODE_CONTROL_PLANE
 };
 
 /**

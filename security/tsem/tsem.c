@@ -286,6 +286,12 @@ static int tsem_file_open(struct file *file)
 		return 0;
 	if (bypass_event())
 		return 0;
+	if (unlikely(tsem_inode(inode)->status == TSEM_INODE_CONTROL_PLANE)) {
+		if (capable(CAP_MAC_ADMIN))
+			return 0;
+		else
+			return -EPERM;
+	}
 
 	if (!S_ISREG(inode->i_mode))
 		return 0;
