@@ -153,7 +153,7 @@ static struct tsem_event_point *have_point(u8 *point)
 
 	spin_lock(&model->point_lock);
 	list_for_each_entry(entry, &model->point_list, list) {
-		if (memcmp(entry->point, point, tsem_digestsize()) == 0) {
+		if (!memcmp(entry->point, point, tsem_digestsize())) {
 			retn = entry;
 			goto done;
 		}
