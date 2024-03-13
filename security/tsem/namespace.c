@@ -54,7 +54,7 @@ static int generate_task_key(const char *keystr, u64 context_id,
 
 		found_key = false;
 		list_for_each_entry(entry, &context_id_list, list) {
-			if (memcmp(entry->key, p_ttask->task_key, size) == 0)
+			if (!memcmp(entry->key, p_ttask->task_key, size))
 				found_key = true;
 		}
 		if (!found_key)
