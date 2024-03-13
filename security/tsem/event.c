@@ -241,8 +241,10 @@ static void _fill_mount_path(struct tsem_inode *tsip, struct tsem_path *path)
 
 	mutex_lock(&tsem_model(current)->mount_mutex);
 	list_for_each_entry(entry, &tsem_model(current)->mount_list, list) {
-		if (!strcmp(entry->pathname, path->pathname))
+		if (!strcmp(entry->pathname, path->pathname)) {
 			retn = entry;
+			break;
+		}
 	}
 
 	if (retn) {
@@ -583,8 +585,10 @@ static u64 _get_task_inode_instance(struct tsem_inode *tsip)
 
 	mutex_lock(&tsip->instance_mutex);
 	list_for_each_entry(entry, &tsip->instance_list, list) {
-		if (!memcmp(entry->owner, task_id, tsem_digestsize()))
+		if (!memcmp(entry->owner, task_id, tsem_digestsize())) {
 			owner = entry;
+			break;
+		}
 	}
 
 	if (owner)
