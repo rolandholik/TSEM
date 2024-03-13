@@ -834,8 +834,10 @@ static int tsem_inode_init_security(struct inode *inode, struct inode *dir,
 	mutex_lock(&tsem_inode(dir)->create_mutex);
 	list_for_each_entry(entry, &tsem_inode(dir)->create_list, list) {
 		if (!memcmp(entry->owner, owner, tsem_digestsize()) &&
-		    !strcmp(qstr->name, entry->pathname))
+		    !strcmp(qstr->name, entry->pathname)) {
 			retn = entry;
+			break;
+		}
 	}
 
 	if (retn) {
