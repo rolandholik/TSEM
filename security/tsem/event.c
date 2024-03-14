@@ -92,9 +92,11 @@ static int register_inode_create(struct inode *dir, u64 instance,
 	if (!p)
 		return -EINVAL;
 
-	retn = register_directory(tsip);
-	if (retn)
-		return retn;
+	if (tsem_context(current)->id) {
+		retn = register_directory(tsip);
+		if (retn)
+			return retn;
+	}
 
 	tio = kzalloc(sizeof(*tio), GFP_KERNEL);
 	if (!tio)
