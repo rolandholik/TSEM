@@ -1711,13 +1711,13 @@ struct tsem_event *tsem_event_allocate(enum tsem_event_type event, bool locked)
 
 	if (ep) {
 		INIT_WORK(&ctx->ws[index].work, refill_event_magazine);
-		queue_work(system_wq, &ctx->ws[index].work);
+		queue_work(system_highpri_wq, &ctx->ws[index].work);
 		ep->event = event;
 		ep->locked = true;
 		return ep;
 	}
 
-	pr_warn("tsem: %s in %llu failed event allocation, cache size=%u.\n",
+	pr_warn("tsem: Fail event allocation comm %s ns %llu cs %u.\n",
 		current->comm, tsem_context(current)->id, ctx->magazine_size);
 	return NULL;
 }

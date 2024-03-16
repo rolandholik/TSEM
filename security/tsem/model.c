@@ -107,7 +107,7 @@ static struct tsem_event_point *alloc_event_point(struct tsem_model *model,
 		return tep;
 	}
 
-	pr_warn("tsem: %s in %llu failed point allocation, cache size=%u.\n",
+	pr_warn("tsem: Fail model point allocation comm %s ns %llu cs %u.\n",
 		current->comm, tsem_context(current)->id,
 		model->magazine_size);
 	return NULL;
