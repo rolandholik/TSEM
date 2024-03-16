@@ -152,7 +152,7 @@ static void get_COE(struct tsem_COE *COE)
 
 static int get_root(struct dentry *dentry, struct tsem_path *path)
 {
-	int retn = 0;
+	int size, retn = 0;
 	char *p, *p1, *pathbuffer = NULL;
 	struct super_block *sb = dentry->d_sb;
 	struct inode *inode = d_backing_inode(sb->s_root);
@@ -166,22 +166,28 @@ static int get_root(struct dentry *dentry, struct tsem_path *path)
 			p1 = strchr(p, ':');
 			if (p1)
 				*p1 = '\0';
-			path->pathname = kmalloc(strlen(p) + 3, GFP_KERNEL);
+
+			size = strlen(p) + 3;
+			path->pathname = kmalloc(size, GFP_KERNEL);
 			if (IS_ERR(path->pathname)) {
 				retn = PTR_ERR(path->pathname);
 				goto done;
 			}
-			strcpy(path->pathname, p);
+
+			strscpy(path->pathname, p, size);
 			strcat(path->pathname, ":/");
 			__putname(pathbuffer);
 		} else {
 			p = "nodev:/";
-			path->pathname = kmalloc(strlen(p) + 1, GFP_KERNEL);
+			size = strlen(p) + 1;
+
+			path->pathname = kmalloc(size, GFP_KERNEL);
 			if (IS_ERR(path->pathname)) {
 				retn = PTR_ERR(path->pathname);
 				goto done;
 			}
-			strcpy(path->pathname, p);
+
+			strscpy(path->pathname, p, size);
 		}
 	}
 
@@ -876,7 +882,7 @@ static int get_socket_cell(struct tsem_socket_args *args)
 	case AF_UNIX:
 		memset(args->out.path, '\0', sizeof(args->out.path));
 		size = args->value - offsetof(struct sockaddr_un, sun_path);
-		strncpy(args->out.path, addr->sa_data, size);
+		strscpy(args->out.path, addr->sa_data, size);
 		break;
 	default:
 		retn = get_socket_address(args, addr);
@@ -916,7 +922,7 @@ static void get_socket_accept(struct tsem_socket_args *args)
 		p = unix_sk(socka)->addr->name->sun_path;
 		size = unix_sk(socka)->addr->len -
 			offsetof(struct sockaddr_un, sun_path);
-		strncpy(args->out.path, p, size);
+		strscpy(args->out.path, p, size);
 		break;
 
 	default:
