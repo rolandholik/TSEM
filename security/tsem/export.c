@@ -298,7 +298,7 @@ int tsem_export_action(enum tsem_event_type event, bool locked)
 	exp->type = LOG_EVENT;
 	exp->u.action.type = event;
 	exp->u.action.action = ctx->actions[event];
-	strcpy(exp->u.action.comm, current->comm);
+	strscpy(exp->u.action.comm, current->comm, sizeof(exp->u.action.comm));
 
 	spin_lock(&ctx->external->export_lock);
 	list_add_tail(&exp->list, &ctx->external->export_list);
