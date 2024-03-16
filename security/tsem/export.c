@@ -139,11 +139,11 @@ static struct export_event *allocate_export(bool locked)
 
 	if (exp) {
 		INIT_WORK(&ext->ws[index].work, refill_export_magazine);
-		queue_work(system_wq, &ext->ws[index].work);
+		queue_work(system_highpri_wq, &ext->ws[index].work);
 		return exp;
 	}
 
-	pr_warn("tsem: %s in %llu failed export allocation, cache size=%u.\n",
+	pr_warn("tsem: Fail export allocation comm %s ns %llu cs %u.\n",
 		current->comm, tsem_context(current)->id, ext->magazine_size);
 	return NULL;
 }
@@ -234,11 +234,8 @@ int tsem_export_event(struct tsem_event *ep)
 	struct export_event *exp;
 
 	exp = allocate_export(ep->locked);
-	if (!exp) {
-		pr_warn("tsem: domain %llu failed export allocation.\n",
-			ctx->id);
+	if (!exp)
 		return -ENOMEM;
-	}
 
 	exp->type = ep->locked ? EXPORT_ASYNC_EVENT : EXPORT_EVENT;
 	exp->u.ep = ep;
