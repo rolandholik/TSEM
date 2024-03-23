@@ -587,7 +587,8 @@ static u64 _get_task_inode_instance(struct tsem_inode *tsip)
 
 	mutex_lock(&tsip->instance_mutex);
 	list_for_each_entry(entry, &tsip->instance_list, list) {
-		if (!memcmp(entry->owner, task_id, tsem_digestsize())) {
+		if (entry->creator == tsem_context(current)->id &&
+		    !memcmp(entry->owner, task_id, tsem_digestsize())) {
 			owner = entry;
 			break;
 		}
@@ -608,6 +609,28 @@ static u64 _get_task_inode_instance(struct tsem_inode *tsip)
 
 	mutex_unlock(&tsip->instance_mutex);
 	return instance;
+}
+
+static int get_inode(struct tsem_inode_args *args)
+{
+	int retn;
+	struct inode *dir = args->in.dir;
+	struct dentry *dentry = args->in.dentry;
+	struct tsem_inode *tsip = tsem_inode(d_backing_inode(dentry));
+
+	memset(&args->out, '\0', sizeof(args->out));
+
+	retn = fill_dentry(dentry, &args->out.dentry);
+	if (retn)
+		return retn;
+	args->out.dentry.path.created = tsip->created;
+	args->out.dentry.path.creator = tsip->creator;
+	args->out.dentry.path.instance = tsip->instance;
+	memcpy(args->out.dentry.path.owner, tsip->owner, tsem_digestsize());
+
+	fill_inode(dir, &args->out.dir);
+
+	return retn;
 }
 
 static int get_inode_create(struct tsem_inode_args *args)
@@ -1380,10 +1403,12 @@ int tsem_event_init(struct tsem_event *ep)
 	case TSEM_KEY_PERMISSION:
 		get_key_perm(&ep->CELL.key);
 		break;
-	case TSEM_INODE_CREATE:
-	case TSEM_INODE_MKDIR:
 	case TSEM_INODE_RMDIR:
 	case TSEM_INODE_UNLINK:
+		retn = get_inode(&ep->CELL.inode);
+		break;
+	case TSEM_INODE_CREATE:
+	case TSEM_INODE_MKDIR:
 		retn = get_inode_create(&ep->CELL.inode);
 		break;
 	case TSEM_INODE_LINK:
