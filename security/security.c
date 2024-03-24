@@ -1717,10 +1717,7 @@ int security_inode_init_security(struct inode *inode, struct inode *dir,
 	if (unlikely(IS_PRIVATE(inode)))
 		return 0;
 
-	if (!blob_sizes.lbs_xattr_count)
-		return 0;
-
-	if (initxattrs) {
+	if (blob_sizes.lbs_xattr_count && initxattrs) {
 		/* Allocate +1 for EVM and +1 as terminator. */
 		new_xattrs = kcalloc(blob_sizes.lbs_xattr_count + 2,
 				     sizeof(*new_xattrs), GFP_NOFS);
@@ -1733,7 +1730,7 @@ int security_inode_init_security(struct inode *inode, struct inode *dir,
 		ret = hp->hook.inode_init_security(inode, dir, qstr, new_xattrs,
 						  &xattr_count);
 		if (ret && ret != -EOPNOTSUPP)
-			goto out;
+			break;
 		/*
 		 * As documented in lsm_hooks.h, -EOPNOTSUPP in this context
 		 * means that the LSM is not willing to provide an xattr, not
@@ -1742,19 +1739,22 @@ int security_inode_init_security(struct inode *inode, struct inode *dir,
 		 */
 	}
 
-	/* If initxattrs() is NULL, xattr_count is zero, skip the call. */
-	if (!xattr_count)
-		goto out;
+	/* Skip xattr processing if no attributes are in use. */
+	if (!blob_sizes.lbs_xattr_count)
+		goto out2;
+	/* No attrs or an LSM returned an actionable error code. */
+	if (!xattr_count || (ret && ret != -EOPNOTSUPP))
+		goto out1;
 
 	ret = evm_inode_init_security(inode, dir, qstr, new_xattrs,
 				      &xattr_count);
-	if (ret)
-		goto out;
-	ret = initxattrs(inode, new_xattrs, fs_data);
-out:
+	if (!ret)
+		ret = initxattrs(inode, new_xattrs, fs_data);
+ out1:
 	for (; xattr_count > 0; xattr_count--)
 		kfree(new_xattrs[xattr_count - 1].value);
 	kfree(new_xattrs);
+ out2:
 	return (ret == -EOPNOTSUPP) ? 0 : ret;
 }
 EXPORT_SYMBOL(security_inode_init_security);
