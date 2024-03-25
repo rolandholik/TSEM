@@ -51,7 +51,7 @@ static struct tsem_model root_model = {
 
 static struct tsem_context root_context;
 
-static int tsem_ready __lsm_ro_after_init;
+DEFINE_STATIC_KEY_TRUE(tsem_not_ready);
 
 static bool tsem_available __lsm_ro_after_init;
 
@@ -277,7 +277,7 @@ static int tsem_file_open(struct file *file)
 	struct inode *inode = file_inode(file);
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -309,7 +309,7 @@ static int tsem_mmap_file(struct file *file, unsigned long prot,
 	struct inode *inode = NULL;
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -378,7 +378,7 @@ static int tsem_file_fcntl(struct file *file, unsigned int cmd,
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -560,7 +560,7 @@ static int tsem_capable(const struct cred *cred, struct user_namespace *ns,
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -791,7 +791,7 @@ static void tsem_bprm_committed_creds(struct linux_binprm *bprm)
 {
 	u8 task_id[HASH_MAX_DIGESTSIZE];
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return;
 
 	if (tsem_map_task(bprm->file, task_id))
@@ -942,7 +942,7 @@ static int tsem_socket_post_create(struct socket *sock, int family, int type,
 {
 	struct tsem_inode *tsip = tsem_inode(SOCK_INODE(sock));
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 
 	memcpy(tsip->owner, tsem_task(current)->task_id, tsem_digestsize());
@@ -953,7 +953,7 @@ static int tsem_socket_create(int family, int type, int protocol, int kern)
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -1176,7 +1176,7 @@ static int tsem_kernel_module_request(char *kmod_name)
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -1232,7 +1232,7 @@ static int tsem_sb_mount(const char *dev_name, const struct path *path,
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -1270,7 +1270,7 @@ static int tsem_sb_remount(struct super_block *sb, void *mnt_opts)
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -1623,7 +1623,7 @@ static int tsem_key_alloc(struct key *key, const struct cred *cred,
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -1643,7 +1643,7 @@ static int tsem_key_permission(key_ref_t key_ref, const struct cred *cred,
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -1682,7 +1682,7 @@ static int tsem_inode_create(struct inode *dir, struct dentry *dentry,
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -1703,7 +1703,7 @@ static int tsem_inode_link(struct dentry *old_dentry, struct inode *dir,
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -1724,7 +1724,7 @@ static int tsem_inode_unlink(struct inode *dir, struct dentry *dentry)
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -1745,7 +1745,7 @@ static int tsem_inode_symlink(struct inode *dir, struct dentry *dentry,
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -1766,7 +1766,7 @@ static int tsem_inode_mkdir(struct inode *dir, struct dentry *dentry,
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -1825,7 +1825,7 @@ static int tsem_inode_mknod(struct inode *dir, struct dentry *dentry,
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -1846,7 +1846,7 @@ static int tsem_inode_setattr(struct dentry *dentry, struct iattr *attr)
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -1865,7 +1865,7 @@ static int tsem_inode_getattr(const struct path *path)
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -1905,7 +1905,7 @@ static int tsem_inode_getxattr(struct dentry *dentry, const char *name)
 {
 	struct tsem_event *ep = NULL;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -1924,7 +1924,7 @@ static int tsem_inode_listxattr(struct dentry *dentry)
 {
 	struct tsem_event *ep;
 
-	if (unlikely(!tsem_ready))
+	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
 	if (bypass_event())
 		return 0;
@@ -2281,7 +2281,7 @@ static int __init set_ready(void)
 	}
 
 	pr_info("tsem: Now active.\n");
-	tsem_ready = 1;
+	static_branch_disable(&tsem_not_ready);
 
  done:
 	return retn;
