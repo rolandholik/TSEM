@@ -473,7 +473,7 @@ static void show_settime(struct seq_file *c, struct tsem_event *ep)
 	}
 
 	if (args->have_tz) {
-		tsem_fs_show_field(c, "ts");
+		tsem_fs_show_field(c, "tz");
 		tsem_fs_show_key(c, "minuteswest", ",", "%d",
 				 args->minuteswest);
 		tsem_fs_show_key(c, "dsttime", "}", "%d", args->dsttime);
