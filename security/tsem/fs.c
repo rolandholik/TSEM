@@ -1190,7 +1190,7 @@ static void show_bpf_prog(struct seq_file *c, struct tsem_event *ep)
 
 	show_event(c, ep);
 
-	tsem_fs_show_field(c, "bpf_prog");
+	tsem_fs_show_field(c, "prog");
 	tsem_fs_show_key(c, "type", ",", "%d", args->prog.type);
 	tsem_fs_show_key(c, "attach_type", "}", "%d", args->prog.attach_type);
 	seq_putc(c, '}');
