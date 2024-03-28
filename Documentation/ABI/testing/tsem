@@ -7,11 +7,6 @@ to fully understand the rationale and functioning of these files:
 
 Documentation/admin-guide/LSM/tsem.rst
 
-In addition to creating namespaces the control plane files output
-security event descriptions that are encoded in JSON format.  The
-referenced document contains a description of the JSON encoding syntax
-that is used.
-
 What:		/sys/kernel/security/tsem
 Date:		March 2024
 Contact:	Greg Wettstein <greg@enjellic.com>
@@ -313,38 +308,12 @@ Description:
 		modeling namespace
 
 		Each entry in this file represents a single security
-		event and consists of a JSON encoded record with key
-		values that define the characteristics of the event.
-
-		Each line in a trajectory, or forensics, file will
-		have three primary key values that label the following
-		JSON structures:
-
-		event
-
-		COE
-
-		CELL definition (multiple key names)
-
-		The structure associated with the "event" label
-		describes the security event that occurred.
-
-		The structure associated with the "COE" label contains
-		a description of the context-of-execution that is
-		calling a security event handler.
-
-		The "CELL definition" is represents a collection of
-		labels that describe a security event that was
-		called.  The key names have been chosen to match the
-		function names of the LSM event handlers.
-		
-		The contents of the structure attached to the CELL
-		definition label is the JSON encoding of the security
-		relevant parameters associated with the event.
+		event and consists of a JSON encoded record with keys
+		and associated values or structures that define the
+		characteristics of the event.
 
 		Examples and descriptions of the JSON structures are
-		provided in the tsem reference documentation described
-		at the beginning of this document.
+		provided at the end of this document.
 		
 What:		ROOTDIR/trajectory_coefficients
 Date:		March 2024
@@ -412,8 +381,8 @@ What:		/sys/kernel/security/tsem/external_tma
 Date:		March 2024
 Contact:	Greg Wettstein <greg@enjellic.com>
 Description:
-		The external_tma is a container directory that hold a
-		file that will be used to export JSON encoded security
+		The external_tma is a container directory that holds
+		files that will be used to export JSON encoded security
 		event descriptions for externally modeled security
 		modeling namespaces.
 
@@ -432,38 +401,1986 @@ Description:
 
 		Each exported event is a JSON encoded record
 		describing an event that is to be externally
-		processed.
+		processed.  The encoding for these events are included
+		below.
 
-		Each record will have an 'export' key that has a
-		structure associated with it that has a 'type' key in
-		it.  The 'type' key has an associated string value
-		that defines the type of event being exported.
-
-		The following type event values are supported:
-
-		aggregate
-			The rest of the export event description will
-			contain a description of the hardware
-			aggregate measurement of the platform that the
-			security modeling namespace is running on.
-
-			See the description of the ROOTDIR/aggregate
-			file for information on the hardware aggregate
-			value.
-
-		async_event
-			A type description of async is used to
-			indicate that the security event described by
-			the event was called by a process that was
-			running in atomic context.
 		
-		event
-			A type description of event contains a
-			description of a security event that is
-			waiting to have its trust status evaluated.
+JSON Security Event Description Encoding:
 
-		log
-			A type description of log indicates that the
-			remainder of the event description describes
-			an event where a process in untrusted status
-			has called a TSEM security event handler.
+Methodology:
+------------
+
+The security event descriptions maintained by the internal TMA and
+that are exported to external trust orchestrator's are encoded in
+JavaScript Object Notation (JSON).  This section of the document will
+describe the encoding strategy that is used.
+
+An encoding strategy was used where each non-structure key value is
+encoded as a JSON string type.  In the case of numeric values it is
+the responsibility of the TMA to convert the string value into an
+appropriate numeric value for the generation of the mapping values
+that contribute to a security state coefficient.
+
+The JSON string encodings for numeric values follow the conventions
+used by the strtol() and/or strtoll() functions to interpret how to
+convert a string encoded numeric value into an appropriate numeric
+binary type when the conversion function is called with the 'special'
+value of 0 for the base argument.
+
+The following nomenclature will be define the value member for numeric
+types:
+
+	0MM:	A base 8 ASCII value.
+	NN:	A base 10 ASCII value.
+	0xHEX	A base 16 ASCII value.
+
+The MM, NN and HEX labels above do not imply a length of the numeric
+string but are used instead to imply that numeric digits of the
+specified type will follow.
+
+When the documentation below specifies a value name of DIGEST it is
+referring to a string value containing the base 16 hexadecimal
+encoding of a cryptographic digest value.  The length of the value
+will be equal to the ASCII hexadecimal encoding length of a digest
+value for the cryptographic compression function that is in effect for
+the security modeling namespace.  A DIGEST value will NOT be preceded
+by the 0x prefix for these values.
+
+A value name of ASCII implies an ASCII string.
+
+
+Event descriptions:
+-------------------
+
+Each TSEM supported LSM event handler (hook) encodes a description of
+the characteristics of an event in the following general form:
+
+{"event": {}, "COE": {}, "CELL": {}}
+
+Where the event key is used to label a structure that characterizes
+the event type.  The COE key labels a structure that characterizes the
+Context Of Execution that is executing the event and the CELL key
+labels a structure that defines the characteristics of the security
+event that an LSM handler/hook is invoked with.
+
+The CELL label used above is a generic label for documentation
+purposes.  The "CELL" label in an actual security event description
+will be replaced with one of the following currently supported event
+type descriptions:
+
+	task_kill
+	task_setpgid
+	task_getpgid
+	task_getsid
+	task_setnice
+	task_setioprio
+	task_getioprio
+	task_prlimit
+	task_setrlimit
+	task_setscheduler
+	task_getscheduler
+	task_prctl
+	file_open
+	mmap_file
+	file_ioctl
+	file_lock
+	file_fcntl
+	file_receive
+	unix_stream_connect
+	unix_may_send
+	socket_create
+	socket_connect
+	socket_bind
+	socket_accept
+	socket_listen
+	socket_socketpair
+	socket_sendmsg"
+	socket_recvmsg
+	socket_getsockname
+	socket_getpeername
+	socket_setsockopt
+	socket_shutdown
+	ptrace_traceme
+	kernel_module_request
+	kernel_load_data
+	kernel_read_file
+	sb_mount
+	sb_umount
+	sb_remount
+	sb_pivotroot
+	sb_statfs
+	move_mount
+	shm_associate
+	shm_shmctl
+	shm_shmat
+	sem_associate
+	sem_semctl
+	sem_semop
+	syslog
+	settime
+	quotactl
+	quota_on
+	msg_queue_associate
+	msg_queue_msgctl
+	msg_queue_msgsnd
+	msg_queue_msgrcv
+	ipc_permission
+	key_alloc
+	key_permission
+	netlink_send
+	inode_create
+	inode_link
+	inode_unlink
+	inode_symlink
+	inode_mkdir
+	inode_rmdir
+	inode_mknod
+	inode_rename
+	inode_setattr
+	inode_getattr
+	inode_setxattr
+	inode_getxattr
+	inode_listxattr
+	inode_removexattr
+	inode_killpriv
+	tun_dev_create
+	tun_dev_attach_queue
+	tun_dev_attach
+	tun_dev_open
+	bpf
+	bpf_map
+	bpf_prog
+	ptrace_access_check
+	capable
+	capget
+	capset
+
+
+Event encoding:
+---------------
+
+The 'event' label encodes a value structure of the following form:
+
+	"event": {
+	        "process": "ASCII",
+	        "type": "ASCII",
+	        "ttd": "NN",
+	        "p_ttd": "NN",
+	        "task_id": "DIGEST",
+	        "p_task_id": "DIGEST",
+	        "ts": "NN"
+	{
+
+Where the value type for the individual keys is as follows:
+
+	process:	The name of the process (current->comm) that
+			is invoking the security handler.
+
+	type:		One of the security event description names
+			noted above.
+
+	ttd:		A 64-bit numeric value incremented each time
+			a TASK_ID is generated by the bprm_committed_creds
+			handler.  This value is used to separate unique
+			invocations of an executable corpus of code.
+
+	p_ttd:		The ttd value of the parent process of the process
+			generating the event.  This value and the ttd
+			value can be used to reproduce the order of
+			execution of executable code on a platform or
+			in a security modeling namespace.
+
+	task_id:	The TASK_ID of the process executing the event.
+
+	p_task_id:	The TASK_ID of the parent process of the process
+			executing the event.
+
+	ts: 		The timestamp for when the security event occurred.
+			The timestamp value is in monotonic nanoseconds
+			since the hardware platform was booted.
+			
+
+Context Of Execution encoding:
+------------------------------
+
+The 'COE' label encodes a structure of the following form:
+
+	"COE": {
+		"uid": "NN",
+		"euid": "NN",
+		"suid": "NN",
+		"gid": "NN",
+		"egid": "NN",
+		"sgid": "NN",
+		"fsuid": "NN",
+		"fsgid": "NN",
+		"capeff": "0xHEX"
+	}
+
+	Which describes the credentials of the process that is
+	executing the event.  The reference for the numeric values of
+	the discretionary access control values is either the initial
+	user namespace or the user namespace that the security
+	modeling namespace is running in.
+
+	The namespace reference is a selectable feature when the
+	security modeling namespace is created.  The root security
+	modeling namespace always uses the initial user namespace.
+
+	It is assumed that anyone developing security models will be
+	familiar with the common definitions for the uid, gid
+	etc. labels.
+
+	The 'capeff' label is the effective capability set possessed
+	by a process when the security event is executed.
+
+	
+CELL (event description) encoding:
+----------------------------------
+	
+The 'CELL' label encodes multiple different structures depending on
+the security event that is being encoded.  An understanding of the
+various LSM security event hooks and their arguments is recommended
+prerequisite for anyone wishing to develop security models using these
+event descriptions.
+
+The CELL event descriptions frequently have subordinate JSON
+structures embedded in them.  In some cases only a single instance of
+a structure is used for that event type, in which case the definition
+of that structure will be included inline with the description of the
+event itself.
+
+The following general event subordinate parameter descriptions are
+used:
+
+The 'creds' structure is used to define the standard discretionary
+access based security credentials for a process:
+
+	creds {
+		"uid": "NN",
+		"euid": "NN",
+		"suid": "NN",
+		"gid": "NN",
+		"egid": "NN",
+		"sgid": "NN",
+		"fsuid": "NN",
+		"fsgid": "NN",
+		"capeff": "0xHEX",
+		"securebits:" "NN"
+	}
+
+	As in the case for the COE encoding standard knowledge of
+	discretionary access controls is assumed with the capeff label
+	being previously described.
+
+	securebits:	A numeric value containing bit specific fields
+			that a file capability enabled kernel will use
+			to invoke special handling of capabilities for
+			the root user id.
+
+
+The 'perm' structure is used to describe the IPC permissions for
+shared memory primitives such as shared memory regions, message
+queues, semaphores etc.:
+
+	"perm": {
+		"uid": "NN",
+		"gid": "NN",
+		"cuid": "NN",
+		"cgid": "NN",
+		"mode": "0MM",
+		"owner": "DIGEST"
+	}
+
+	uid:		The user id requesting permission for access to the
+			memory area.
+
+	gid:		The group id requesting permission for access to
+			the memory area.
+
+	cuid:		The alternate user id requesting permission for
+			access to the memory area.
+
+	cgid:		The alternate group id requesting permission for
+			access to the memory area.
+
+	mode:		The permissions being requested for access.
+
+	owner:		The TASK_ID of the process requesting access
+			to the memory area.
+
+
+The 'inode' structure is used to describe an inode structure used in
+a security event description:
+
+	"inode": {
+		"uid": "NN",
+		"gid": "NN",
+		"mode": "0MM,
+		"s_magic": "0xHEX",
+		"s_id": "ASCII",
+		"s_uuid": "HEX"
+	}
+
+	uid:		The user id that owns the inode.
+
+	gid:		The group id that owns the inode.
+
+	mode:		The discretionary access control permissions
+			for the inode.
+
+	s_magic:	The magic number of the filesystem that the
+			inode is in.
+
+	s_id:		The informational name from the superblock
+			of the filesystem the inode is in.
+
+	s_uuid:		The UUID of the filesystem the inode is in.
+
+
+The 'inode' structure is used to describe an inode structure used in
+a security event description:
+
+	"inode": {
+		"uid": "NN",
+		"gid": "NN",
+		"mode": "0MM,
+		"s_magic": "0xHEX",
+		"s_id": "ASCII",
+		"s_uuid": "HEX"
+	}
+		
+
+The 'path' structure is used to describe a path definition for an
+inode:
+
+	"path": {
+		"dev": {
+			"major": "NN",
+			"minor": "NN"
+		},
+		"instance": "NN",  	/* Optional. */
+		"owner": "DIGEST", 	/* Optional. */
+		"pathname": "ASCII"
+	}
+
+	dev:		A structure used to encapsulate the major and minor
+			numbers of the device that the filesystem is based
+			on.  This structure will not be included if the
+			path is not on a block device.
+
+	instance:	This key/value pair is only reported for an
+			inode that is created in the context of the
+			security modeling namespace that is reporting
+			the path description.
+
+			If reported, the instance value is the
+			instance count of an inode created under the
+			containing directory by the TASK_ID of the
+			process creating the inode.
+
+	owner:		As with the instance key, this key/value pair
+			is only reported for an inode created in the
+			context of the security modeling namespace
+			that is reporting the path description.
+
+			If reported, the DIGEST value is the TASK_ID
+			of the process that created the inode.
+
+	pathname:	The pathname of the file.
+	
+
+The 'dentry' structure is used to describe a dentry argument:
+
+	"dentry": {
+		"inode": {},
+		"path": {}
+	}
+
+	inode:		A JSON inode structure that describes the backing
+			inode for the dentry.  In some instances a
+			dentry does not have an inode defined, in which
+			case this key/value structure will be omitted
+			from the security event description.
+
+	path:		A JSON path structure describing the pathname
+			implemented by the dentry.
+			
+
+The 'file' structure is used to describe a file structure used in
+a security event description:
+
+	"file": {
+		"flags": "NN",
+		"inode": {},
+		"path": {}
+		"digest": "DIGEST"
+	}
+
+	flags:	The f_flags member of the file structure describing
+		how the file was opened.
+
+	inode:	A structure describing the inode that is backing
+		the file.  The definition of the inode structure will
+		be included after the descriptions of the inode based
+		security handlers.
+
+	path:	A structure describing the path to the file.
+
+	digest:	The cryptographic digest of the file.  For files
+		on a pseudo-filesystem or files that are created in
+		the context of a security modeling namespace this
+		value will be the 'zero-value' digest for the
+		hash function being used in the security modeling
+		namespace.
+
+
+The 'sb' structure is used to describe a filesystem superblock.
+
+	"sb": {
+		"dev_name", "ASCII",
+		"path", {},
+		"type", "ASCII",
+		"flags", "NN"
+	}
+
+	dev_name:	The device name that the filesystem is mounted
+			on.
+
+	path:		A JSON path description describing where the
+			the superblock is mounted.
+
+	type:		An ASCII string describing the mounted filesystem.
+
+	flags:		The mount flags for the mountpoint.
+
+
+The 'sock' structure is used to describe a socket that is used in
+a security event description:
+
+	sock {
+		"family": "NN",
+		"type": "NN",
+		"protocol": "NN",
+		"owner": "DIGEST"
+	}
+
+	family:		A numeric value describing the protocol family
+			that the socket is to be created for, ie. AF_UNIX,
+			AF_INET etc.
+
+	type:		The type of communications the socket is to
+			be used for, ie. SOCKET_STREAM, SOCKET_DGRAM.
+
+	protocol:	An optional protocol to be used with the socket.
+
+
+The 'addr' structure is used is an enclosing structure to hold
+subordinate structures that describe the address of a socket.  The
+addr field will contain a subordinate structure that is specific to
+the address type:
+
+	addr {
+		"af_inet": {}
+		"af_inet6": {}
+		"af_unix": {}
+		"af_other": {}
+	}
+
+The 'af_inet' structure defines an IPV4 network address:
+
+	"af_inet": {
+		"port": "NN",
+		"address": "NN
+	{
+
+	port:		The port number of the address.
+
+	address:	The 32-bit IPV4 address.
+
+The 'af_inet6' structure defines an IPV6 network address:
+
+	"af_inet6": {
+		"port": "NN",
+		"flow":	"NN",
+		"scope": "NN",
+		"address": "HEXID"
+	}
+
+	port:		The port number of the address.
+
+	flow:		The IPV6 flow specifier.
+
+	scope:		The IPV6 scope designator.
+
+	address:	The 128 bit IPV6 address in ASCII hexadecimal.
+
+The 'af_unix' structure a UNIX domain address:
+
+	"af_unix": {
+		"address": "ASCII"
+	}
+
+	address:	The path to the filesystem object representing
+			the socket.
+
+The 'af_other' structure is used to define a socket address other
+than one of the three above:
+
+	"af_other": {
+		"address": "DIGEST"
+	}
+
+	address:	The DIGEST value is the cryptographic digest
+			value over the sa_data member of the
+			sockaddr structure.
+
+
+Event Specific Encodings:
+-------------------------
+
+The 'task_kill' event models a request to send a signal to a target
+task:
+
+	"task_kill": {
+		"target": "DIGEST",
+		"sig": "NN",
+		"cross_ns": "NN"
+	}
+
+	target:		The TASK_ID of the process that the signal is
+			being sent to.
+
+	sig:		The number of the signal being sent.
+
+	cross_ns:	A boolean flag variable of 0 or 1 indicating
+			whether or not the signal will be crossing a
+			security modeling namespace boundary.
+
+
+The 'task_setpgid' event models a request to set the process group id
+of a task:
+
+	"task_setpgid": {
+		"task": "DIGEST",
+		"source": "DIGEST"
+	}
+
+	task:		The TASK_ID of the process whose process group
+			id is to be set.
+
+	source:		The TASK_ID of the process whose process group
+			id the target task is to be placed into.
+
+
+The 'task_getpgid' event describes a request to obtain the process
+group id of a task:
+
+	"task_getpgid": {
+		"task": "DIGEST",
+	}
+
+	task:		The TASK_ID of the process whose process group
+			id is to be obtained.
+
+
+The 'task_getsid' event describes a request to obtain the session id of
+a task.
+	
+	"task_getsid": {
+		"task": "DIGEST",
+	}
+
+	task:		The TASK_ID of the process whose session id is
+			to be obtained.
+
+
+The 'task_setnice' event describes a request to set the execution
+priority of a task.
+
+	"task_setnice": {
+		"task": "DIGEST",
+		"nice": "NN"
+	}
+
+	task:		The TASK_ID of the process whose priority is
+			to be set.
+
+	nice:		The numerical priority value to be set.
+
+
+The 'task_setioprio' event describes a request to set the io priority
+of a task.
+
+	"task_setioprio": {
+		"task": "DIGEST",
+		"ioprio": "NN"
+	}
+
+	task:		The TASK_ID of the process whose I/O priority is
+			to be set.
+
+	ioprio:		The numerical priority value to be set.
+
+
+
+The 'task_getioprio' event describes a request to get the io priority
+of a task.
+
+	"task_getioprio": {
+		"task": "DIGEST"
+	}
+
+	task:		The TASK_ID of the process whose I/O priority is
+			to be obtained.
+
+
+The 'task_prlimit' event describes a request to get or set resource
+limits for a task
+
+	"task_prlimit": {
+		"cred": {}
+		"tcred": {}
+	}
+
+	cred:		A credential structure, defined below, that
+			describes the credentials of the task that
+			is requesting the right to set resource limits
+			for a task.
+
+	tcred:		A credential structure that describes the
+			credentials of the task whose resource limits
+			are to queried.
+
+
+The 'task_setrlimit' event describes a request to set a new resource
+limit for a task.
+
+	"task_setrlimit": {
+		"task": "DIGEST"
+		"new_rlim": {
+			"resource": "NN",
+			"current": "NN",
+			"max": "NN"
+		}
+	}
+
+	task:		The TASK_ID of the process whose resource limit
+			is to be set.
+
+	new_rlim:	A structure with the following key values that
+		 	describes the resource limit being set:
+
+			resource:	The numeric identifier for the
+					resource being set.
+
+			current:	The current numeric value of
+					the resource.
+
+			max:		The new numeric value for the
+					resource.
+	
+
+The 'task_setscheduler' event describes a request to set a new scheduler
+type for a task.
+
+	"task_setscheduler": {
+		"task": "DIGEST"
+	}
+
+	task:		The TASK_ID of the process whose scheduler is
+			to be set.
+
+
+The 'task_getscheduler' event describes a request to obtain the type of
+process scheduler that is set for a task.
+
+	"task_getscheduler": {
+		"task": "DIGEST"
+	}
+
+	task:		The TASK_ID of the process whose scheduler
+			type is to be queried.
+
+
+The 'task_prctl' event describes a request to perform a process control
+operation on the task that is executing the event.
+
+	"task_prctl": {
+		"option": "NN",
+		"arg2": "NN",
+		"arg3": "NN",
+		"arg4": "NN",
+		"arg5": "NN
+	}
+
+	option:		The type of process control operation that is
+			to be performed.
+
+	arg2-5:		A total of four numeric values that describe
+			the process control operation.
+
+
+The 'file_open' event describes a request to open a file.
+
+	"file_open": {
+		"file": {}
+	}
+
+	file:	A structure describing the file that is to be opened.
+		This structure is used as a parameter in multiple
+		events and will be documented later.
+
+
+The 'file_ioctl' event describes a request to issue an ioctl call against
+a file.
+
+	"file_ioctl": {
+		"file": {},
+		"cmd": "NN
+	}
+
+	file:	The description of the file that the ioctl call is
+		to be issued against.
+
+	prot:	The numeric value of the argument specifying the memory
+		protections that are to be implemented.
+
+	flags:	The flags argument specifying the type of mapping to be
+		implemented.  See the mmap(2) manpage for information
+		about the protection and flags argument to the mmap
+		system call.
+
+
+The 'file_lock' event describes a request for permission to issue a
+lock operation against the specified file.
+
+	"file_lock": {
+		"file": {},
+		"cmd": "NN"
+	}
+
+	file:	The description of the file that the lock is to be
+		placed on.
+
+	cmd:	The numeric coding of the lock operation that is to
+		be performed.
+
+
+The 'file_fcntl' event describes a request for permission to issue a
+perform a file operation on the designated file.
+
+	"file_fcntl": {
+		"file": {},
+		"cmd": "NN"
+	}
+
+	file:	The description of the file that the file operation is
+		to be conducted on.
+
+	cmd:	The numeric coding of the type of file operation that
+		is to be performed.
+
+
+The 'file_receive' event describes a request for permission to receive
+an open file descriptor though an InterProcess Communications (IPC)
+call.
+
+	"file_receive": {
+		"file": {},
+	}
+
+	file:	The description of the file whose file descriptor is to
+		be received.
+
+
+The 'unix_stream_connect' event describes a request for permission to
+establish a UNIX domain stream connection.  This request for
+permission is for AF_UNIX sockets that are not enumerated using the
+traditional filename model.
+
+	"unix_stream_connect": {
+		"sock": {},
+		"other": "{}"
+	}
+
+	sock:	A JSON socket structure describing the socket that is
+		to be connected to a second socket.  A socket description
+		structure is used by other socket operations and its
+		characteristics will be documented later.
+
+	other:	A JSON socket structure describing the socket that is
+		to be connected to.
+
+
+The 'unix_may_send' event describes a request for permission to send
+a datagram from an originating socket to a destination socket.  This
+permission check is associated with the non-filename based sockets
+described above.
+
+	"unix_may_send": {
+		"sock": {},
+		"other": "{}"
+	}
+
+	sock:	A structure describing the socket that is originating
+		the datagram.
+
+	other:	A structure describing the socket that is to receive
+		the datagram.
+
+
+The 'socket_create' event describes a request for permission to create
+a networking socket.
+
+	"socket_create": {
+		"family": NN,
+		"type": "NN",
+		"protocol": "NN",
+		"kern": "NN"
+	}
+
+	family:		A numeric value describing the protocol family
+			that the socket is to be created for, ie. AF_UNIX,
+			AF_INET etc.
+
+	type:		The type of communications the socket is to
+			be used for, ie. SOCKET_STREAM, SOCKET_DGRAM.
+
+	protocol:	An optional protocol to be used with the socket.
+
+	kern:		A boolean value used to indicate whether or
+			not the socket is kernel based.
+
+
+The 'socket_connect' event describes a request for permission to
+create connect a socket to a remote endpoint address.
+
+	"socket_connect": {
+		"sock": {},
+		"addr": {}
+	}
+
+	sock:		A JSON socket description of the socket making
+			the connection request.
+
+	addr:		A JSON socket structure describing the connection
+			endpoint address.
+
+
+The 'socket_bind' event describes a request for permission to bind a
+socket to a network endpoint address.
+
+	"socket_bind": {
+		"sock": {},
+		"addr": {}
+	}
+
+	sock:		A JSON socket description of the socket making
+			the request.
+
+	addr:		A JSON address description describing the address
+			that is being bound to.
+
+
+The 'socket_accept' event describes a request for permission for a
+socket to accept a connection from a remote address.
+
+	"socket_accept": {
+		"sock": {},
+		"addr": {}
+	}
+
+	sock:		A JSON socket description of the socket making
+			the request.
+
+	addr:		A JSON address description of the address being
+			accepted by the socket.
+
+
+The 'socket_listen' event describes a request for permission for a
+socket to listen for a connection.
+
+	"socket_listen": {
+		"sock": {},
+		"backlog": "NN"
+	}
+
+	sock:		A JSON socket description of the socket making
+			the request to listen.
+
+	backlog:	The maximum number of entries that will be
+			allowed to be queued waiting for acceptance.
+
+
+The 'socket_socketpair' event describes a request for permission to
+create a pair of connected sockets.
+
+	"socket_socketpair": {
+		"socka": {},
+		"sockb": {}"
+	}
+
+	socka:		A JSON socket description of the first socket in
+			the pair.
+
+	sockb:		A JSON socket description of the second socket in
+			the pair.
+
+
+The 'socket_sendmsg' event describes a request for permission to
+send a message over a socket.
+
+	"socket_sendmsg": {
+		"sock": {},
+		"addr": {}"
+	}
+
+	sock:		A JSON socket description of the socket sending
+			the message.
+
+	addr:		A JSON address description defining the address
+			to which the message is being sent.
+
+
+The 'socket_recvmsg' event describes a request for permission to
+receive a message over a socket.
+
+	"socket_recvmsg": {
+		"sock": {},
+		"addr": {}"
+	}
+
+	sock:		A JSON socket description of the socket receiving
+			the message.
+
+	addr:		A JSON address description the address from which
+			the message is being received.
+
+
+The 'socket_getsockname' event describes a request for permission to
+read the address of a socket.
+
+	"socket_getsockname": {
+		"sock": {}
+	}
+
+	sock:		A JSON socket description of the socket whose
+			address is to be read.
+
+
+The 'socket_getpeername' event describes a request for permission to
+read the address of the socket's peer.
+
+	"socket_getpeername": {
+		"sock": {}
+	}
+
+	sock:		A JSON socket description of the socket the
+			peer address is to be obtained from.
+
+
+The 'socket_setsockopt' event describes a request for permission to
+set an option on a socket.
+
+	"socket_setsockopt": {
+		"sock": {},
+		"level": "NN",
+		"optname": "NN"
+	}
+
+	sock:		A JSON socket description of the socket whose
+			options are to be set.
+
+	level:		The protocol level at which the option will be
+			set.
+
+	optname:	The numeric coding of the option that will be set.
+
+
+The 'socket_shutdown' event describes a request for permission to shutdown
+a socket.
+
+	"socket_shutdown": {
+		"sock": {},
+		"how": "NN"
+	}
+
+	sock:		A JSON socket description of the socket that is
+			to be shutdown.
+
+	how:		A numeric code specifying how send and receives
+			on the socket are to be handled by the shutdown.
+
+
+The 'ptrace_traceme' event describes a request for permission for the
+parent process to trace the process that is executing the security
+handler.
+
+	"ptrace_traceme": {
+		"source": "DIGEST"
+	}
+
+	source:		The TASK_ID of the process requesting tracing
+			permissions.
+
+
+The 'kernel_module_request' event describes a request for permission
+to load a kernel module.
+
+	"kernel_module_request": {
+		"kmod_name": "ASCII"
+	}
+
+	kmod_name:	The name of the kernel module being requested.
+
+
+The 'kernel_load_data' event describes a request for permission to
+load data into the kernel
+
+	"kernel_load_data": {
+		"id": "NN",
+		"contents": "NN"
+	}
+
+	id:		A numeric identifier value representing the
+			type of data to be loaded.
+
+	contents:	A flag variable indicating if post data
+			loading will be used.
+		
+
+The 'kernel_read_file' event describes a request for permission for the
+kernel to load a file specified by userspace.
+
+	"kernel_read_file": {
+		"file": {},
+		"contents": "NN"
+	}
+
+	file:		A JSON description of the file to be read.
+
+	id:		A numeric identifier value representing the
+			type of data to be loaded.
+
+
+The 'sb_mount' event describes a request for permission to mount a
+filesystem.
+
+	sb_mount {
+		"dev_name": "ASCII",
+		"path": {}
+		"type": "ASCII",
+		"flags": "NN"
+	}
+
+	dev_name:	The name of the device that is to be mounted.
+
+	path:		A JSON path description describing where the
+			device is to be mounted.
+
+	type:		The type of filesystem to be mounted.
+
+	flags:		The mount flags to be implemented.
+	
+
+The 'sb_umount' event describes a request to unmount a filesystem.
+
+	"sb_umount": {
+		"mnt", {},
+		"flags", "NN"
+	}
+
+	mnt:		A JSON dentry structure defining the mount point
+			that is to be unmounted.
+
+	flags:		A numerical value specifying the flags passed
+			to the unmount command.
+
+
+The 'sb_remount' event describes a request for permission to remount a
+filesystem.
+
+	"sb_remount": {
+		"sb": {}
+		"dentry": {},
+		"fstype": "ASCII",
+		"s_flags": "NN"
+	}
+
+	sb:		A JSON superblock structure describing the
+			mountpoint that is to be remounted.
+
+	dentry:		A JSON dentry structure describing the mountpoint
+			that is to be remounted.
+
+	fstype:		The name of the filesystem being remounted.
+
+	s_flags:	The superblock flags describing the mount.
+
+
+The 'sb_pivotroot' event describes a request for permission to pivot
+the root filesystem to a new mount point.
+
+	"sb_pivotroot": {
+		"old_path": {},
+		"new_path": {}
+	}
+
+	old_path:	A JSON path structure specifying the location
+			from which the root filesystem is to be moved.
+
+	new_path:	A JSON path structure specifying the location
+			to which the root filesystem is to be moved.
+
+
+The 'sb_statfs' event describes a request for permission to access
+filesystem statistics.
+
+	"sb_statfs": {
+		"dentry": {},
+	}
+
+	dentry:		A JSON dentry structure describing the superblock
+			location for the request.
+
+
+The 'move_mount' event describes a request for permission to move a
+mount from one location to another.
+
+	"move_mount": {
+		"from_path": {},
+		"to_path": {}
+	}
+
+	from_path:	A JSON path structure describing the location from
+			where the mount is to be moved from.
+
+	to_path:	A JSON path structure describing the location to
+			where the mount is to be moved to.
+
+
+The 'shm_associate' event structure describes a request for permission
+to access an existing shared memory region.
+
+	"shm_associate": {
+		"perm": {},
+		"shmflg": "NN"
+	}
+
+	perm: 		A JSON IPC permissions structure describing the
+			permissions of the shared memory region.
+
+	shmflg:		A numeric flag describing the shared memory
+			operations being requested.
+
+
+The 'shm_shmctl' event structure describes a request for permission to
+execute a command on a SYSV shared memory region.
+
+	"shm_shmctl": {
+		"perm": {},
+		"cmd": "NN"
+	}
+
+	perm: 		A JSON IPC permissions structure describing the
+			permissions of the shared memory region.
+
+	cmd:		The command whose permission is to be checked.
+
+
+The 'shm_shmat' event structure describes a request for permission to
+attach to a shared memory region.
+
+	"shm_shmat": {
+		"perm": {},
+		"shmflg": "NN"
+	}
+
+	perm: 		A JSON IPC permissions structure describing the
+			permissions of the shared memory region.
+
+	shmflg:		The shared memory attachment command being
+			requested.
+
+
+The 'sem_associate' event structure describes a request for permission
+to attach to an existing shared memory semaphore.
+
+	"sem_associate": {
+		"perm": {},
+		"shmflg": "NN"
+	}
+
+	perm: 		A JSON IPC permissions structure describing the
+			permissions of the semaphores that the
+			association request is being requested for.
+
+	semflg:		The semaphore operations flag.
+
+
+The 'sem_semctl' event structure describes a request for permission
+to execute a control operation on a shared memory semaphore.
+
+	"sem_semctl": {
+		"perm": {},
+		"cmd": "NN"
+	}
+
+	perm: 		A JSON IPC permissions structure describing the
+			permissions of on the semaphore that the control
+			command is being requested on.
+
+	cmd:		The semaphore command that is being requested.
+
+
+The 'sem_semop' event structure describes a request for permission to
+request an operation on a semaphore set.
+
+	"sem_semctl": {
+		"perm": {},
+		"nsops": "NN",
+		"alter": "NN"
+	}
+
+	perm: 		A JSON IPC permissions structure describing the
+			permissions of the semaphore set that the
+			operation is being requested on.
+
+	nsops:		The number of operations to be performed.
+
+	alter:		The changes that are to be made.
+
+
+The 'syslog' event structure describes a request for permission to
+access the kernel message buffers or change console logging.
+
+	"syslog": {
+		"type": NN
+	}
+
+	type: 		The action that is being requested.
+
+
+The 'settime' event structure describes a request for permission to
+access the kernel message buffers or change console logging.
+
+	"settime": {
+		"ts": {
+			"seconds", "NN",
+			"nsecs", "NN"
+		},
+		"tz": {
+			"minuteswest", "NN",
+			"dsttime", "NN"
+		}
+	}
+
+	ts: 		If the call to the security_settime handler was
+			to set the time this structure will be present.
+
+	seconds:	The time in seconds to set.
+
+	nsecs:		The time in nano-seconds to be set.
+
+	tz:		If the call to the security_settime handler was
+			to set the timezone this structure will be present.
+
+	minuteswest:	The offset of the timezone.
+
+	dsttime:	A flag variable to indicate if daylight savings
+			time is to be set.
+
+
+The 'quotactl' event structure describes a request for permission to
+control manipulate filesystem quotas.
+
+	"quotactl": {
+		"cmds": "NN",
+		"type": "NN",
+		"id": "NN",
+		"sb", {}
+	}
+
+	cmds:		The quota commands to be enforced.
+
+	type:		The type of quota to be enforced.
+
+	id:		The quota version to be enforced.
+
+	sb:		A JSON superblock structure describing the
+			filesystem on which the quota command is to
+			operate on.
+
+
+The 'quota_on' event structure describes a request to enable quotas
+for a filesystem.
+
+	"quota_on": {
+		"dentry": {}
+	}
+
+	dentry:		A JSON dentry description describing the
+			mountpoint that quotas are to be enabled on.
+
+
+The 'msg_queue_associate' event structure describes a request to
+access a previously defined message queue.
+
+	"msg_queue_associate": {
+		"perm": {}
+		"msgflg": "NN"
+	}
+
+	perm: 		A JSON IPC permissions structure describing the
+			permissions of the message queue that association
+			is being requested for.
+
+	msgflg:		A numeric flag indicating the operation that is
+			being requested.
+
+
+The 'msg_queue_msgctl' event structure describes a request to execute
+a control operation on a shared memory message queue region.
+
+	"msg_queue_msgctl": {
+		"perm": {}
+		"cmd": "NN"
+	}
+
+	perm: 		A JSON IPC permissions structure describing the
+			permissions of the shared memory message queue
+			region that the control command is being
+			requested on.
+
+	cmd:		A numeric flag indicating the control operation
+			that is to be executed.
+
+
+The 'msg_queue_msgsnd' event structure describes a request to send a
+message over a shared memory message queue.
+
+	"msg_queue_msgsnd": {
+		"perm": {}
+		"msqflg": "NN"
+	}
+
+	perm: 		A JSON IPC permissions structure describing the
+			permissions of the shared memory message queue
+			region that the message is being sent on.
+
+	msqflg:		A numeric coding of the operation that is to
+			be performed.
+
+
+The 'msg_queue_msgrcv' event structure describes a request to receive
+a message over a shared memory message queue.
+
+	"msg_queue_msgrcv": {
+		"perm": {}
+		"target": "DIGEST"
+		"type": "NN",
+		"mode": 
+	}
+
+	perm: 		A JSON IPC permissions structure describing the
+			permissions of the shared memory message queue
+			region that the message is being received on.
+
+	target:		The TASK_ID of the process that is to receive
+			the message.
+
+	type:		The type of message that is to be received.
+
+	mode:		The operations flag for the message.
+
+
+The 'ipc_permission' event structure describes a request to check if
+SYSV IPC access is to be allowed.
+
+	"ipc_permission": {
+		"perm": {}
+		"target": "DIGEST"
+		"type": "NN",
+		"mode": "NN"
+	}
+
+	ipcp: 		A JSON IPC permissions structure describing the
+			permissions on the SYSV shared memory region that
+			is to be checked.
+
+	flag:		The access permissions being requested.
+
+
+The 'key_alloc' event structure describes a request for permission to
+allocate and initialize a kernel key structure.
+
+	"key_alloc": {
+		"creds": {},
+		"flags": "NN"
+	}
+
+	creds: 		A JSON credentials structure describing the
+			the access controls for the key structure
+
+	flags:		A numeric control constant describing how the
+			key is to be created.
+
+
+The 'key_permission' event structure describes a request for
+permission to execute a control operation on a kernel key structure.
+
+	"key_permission": {
+		"key_refs": {
+			"possessed": "NN",
+			"uid": "NN",
+			"gid": "NN",
+			"flags": "NN"
+		}
+		"creds": {},
+		"perm", "NN"
+	}
+
+	key_refs:	A JSON structure describing the key to be
+			accessed.
+
+		possessed:	A flag indicating whether or not the key is
+				possessed by a process.
+
+		uid:		The user id that owns the key.
+
+		gid:		The group id that owns the key.
+
+		flags:		Flags describing the state of the key.
+
+	creds		A credentials structure describing the task that
+			is requesting access to the key.
+
+	perm:		The permissions that are being requested on the
+			key.
+
+
+The 'netlink_send' event structure describes the permissions that are
+to be set on a netlink socket.
+
+	"netlink_send": {
+		"sock": {},
+		"uid": "NN",
+		"gid": "NN"
+		"portid": "NN",
+		"dst_group": "NN",
+		"nsid_set": "NN",
+		"nsid": "NN"
+	}
+
+	sock:		A JSON socket description structure describing
+			the socket over which the message is to be sent.
+
+	uid:		The user id that the message is to be sent to.
+
+	gid:		The group id that the message is to be sent to.
+
+	portid:		The port identifier of the 	
+
+	dst_group:	The destination group for the message.
+
+	nsid_set:	A flag variable indicating that the nsid value
+			is valid.
+
+	nsid:		The namespace identifier.
+
+
+The 'inode_create' event structure describes a request to create an
+inode.
+
+	"inode_create": {
+		"dir":	{},
+		"dentry": {},
+		"mode": "0MM"
+	}
+
+	dir:		A JSON inode description describing the directory
+			the inode is to be created under.
+
+	dentry:		A JSON dentry description describing the location
+			where the inode is to be created.
+
+	mode:		The permissions to be assigned to the inode.
+
+
+The 'inode_link' event structure describes a request to link an inode
+to a new location.
+
+	"inode_link": {
+		"old_dentry": {},
+		"dir": {},
+		"new_dentry": {}
+	}
+
+	old_dentry:	A JSON dentry description describing the current
+			location of the inode.
+
+	dir		A JSON inode description describing the parent
+			directory under which the inode link will be
+			created.
+
+	new_dentry:	A JSON dentry description describing the location
+			of the new link.
+
+
+The 'inode_unlink' event structure describes a request to delete an
+inode.
+
+	"inode_unlink": {
+		"dir": {},
+		"dentry": {}
+	}
+
+	dir:		A JSON inode structure describing the parent
+			directory from which the inode is to be removed.
+
+	dentry:		A JSON dentry description describing the inode
+			to be removed.
+
+
+The inode_symlink event structure describes a request to delete an inode.
+
+	"inode_symlink": {
+		"dir": {},
+		"dentry": {},
+		"old_name": "ASCII"
+	}
+
+	dir:		A JSON inode structure describing the parent
+			directory in which the link is to be created.
+
+	dentry:		A JSON dentry description describing the inode
+			that is to be created as the link.
+
+	old_name:	The name of the existing filename to be linked.
+
+
+The 'inode_mkdir' event structure describes a request to create an
+directory.
+
+	"inode_mkdir": {
+		"dir": {},
+		"dentry": {},
+		"mode": "0MM"
+	}
+
+	dir:		A JSON inode structure describing the parent
+			directory in which the directory is to be created.
+
+	dentry:		A JSON dentry description describing the directory
+			inode that is to be created.
+
+	mode:		The permissions to be assigned to the new directory.
+
+
+The 'inode_rmdir' event structure describes a request to remove a
+directory inode.
+
+	"inode_rmdir": {
+		"dir": {},
+		"dentry": {},
+	}
+
+	dir:		A JSON inode structure describing the parent
+			directory of the directory being removed.
+
+	dentry:		A JSON dentry description describing the directory
+			inode that is to be removed.
+
+	mode:		The permissions to be assigned to the new directory.
+
+
+The 'inode_mknod' event structure describes a request to remove a directory
+inode.
+
+	"inode_mknod": {
+		"dir": {},
+		"dentry": {},
+		"mode": "0MM",
+		"dev": {
+			"major": "NN",
+			"minor": "NN"
+		}
+	}
+
+	dir:		A JSON inode structure describing the directory
+			under which the device node is being created.
+
+	dentry:		A JSON dentry description describing the location
+			of the device node inode.
+
+	mode:		The permissions to be assigned to the device node.
+
+	dev:		A JSON structure describing the device node
+			characteristics:
+
+		major:		The major number of the device to be
+				created.
+
+		minor:		The minor number of the device to be
+				created.
+
+
+The 'inode_rename' event structure describes a request to rename an
+inode.
+
+	"inode_rename": {
+		"old_dir": {},
+		"old_dentry": {},
+		"new_dir": {},
+		"new_dentry": {}
+	}
+
+	old_dir:	A JSON inode structure describing the parent
+			directory of the inode to be renamed.
+
+	old_dentry:	A JSON dentry description describing the location
+			of the inode to be renamed.
+
+	new_dir:	A JSON inode structure describing the parent
+			directory of the new location of the inode.
+
+	new_dentry:	A JSON dentry description describing the new
+			inode location.
+
+
+The 'inode_setattr' event structure describes a request to set the
+attributes of an inode.
+
+	"inode_setattr": {
+		"dentry": {},
+		"attr": {
+			"valid": "NN",
+			"mode": "0MM",
+			"uid": "NN",
+			"gid": "NN",
+			"size": "NN
+		}
+	}
+
+	dentry:		A JSON dentry structure describing the inode
+			whose characteristics are to be set.
+
+	attr:		A JSON structure describing the characteristics
+			that will be set:
+
+		valid:		A numeric encoding of what characteristics
+				of the inode should be set.
+
+		mode:		If requested, the permissions that are to
+				be set.
+
+		uid:		If requested, the new user id to be set.
+
+		gid:		If requested, the new group id to be set.
+
+		size:		If requested, the new size of the file.
+
+
+
+The 'inode_getattr' event structure describes a request to obtain the
+attributes of an inode.
+
+	"inode_getattr": {
+		"path": {}
+	}
+
+	path:		A JSON path structure describing the path to
+			the inode whose attributes are to be retrieved.
+
+
+The 'inode_setxattr' event structure describes a request to set the
+extended attributes of an inode.
+
+	"inode_setxattr": {
+		"dentry": {},
+		"name": "ASCII",
+		"value": "BASE64",
+		"flags": "NN"
+	}
+
+	dentry:		A JSON dentry structure describing the inode
+			whose extended attributes are to be set.
+
+	name:		The name of the attribute to be set.
+
+	value:		The value of the attribute to be set encoded
+			as a Base64 ASCII string.
+
+	flags:		The operations flag for how to set the attribute.
+
+
+The 'inode_getxattr' event structure describes a request to get the
+extended attributes of an inode.
+
+	"inode_getxattr": {
+		"dentry": {},
+		"name": "ASCII",
+	}
+
+	dentry:		A JSON dentry structure describing the inode
+			whose extended attributes are to be requested.
+
+	name:		The name of the attribute whose value is to
+			be requested.
+
+
+The 'inode_listxattr' event structure describes a request to list the
+extended attributes attached to an inode.
+
+	"inode_listxattr": {
+		"dentry": {}
+	}
+
+	dentry:		A JSON dentry structure describing the inode
+			whose extended attributes are to be listed.
+
+
+The 'inode_removexattr' event structure describes a request to remove
+an extended attributes attached to an inode.
+
+	"inode_removexattr": {
+		"dentry": {},
+		"name": "ASCII"
+	}
+
+	dentry:		A JSON dentry structure describing the inode
+			whose extended attribute are to be removed.
+
+	name:		The name of the extended attribute that is to
+			be removed.
+
+
+The 'inode_killpriv' event structure describes a request to remove
+privileges from an inode.
+
+	"inode_killpriv": {
+		"dentry": {}
+	}
+
+	dentry:		A JSON dentry structure describing the inode
+			whose privileges are to be removed.
+
+
+The 'tun_dev_create' event structure describes a request to create a
+TUN network device.
+
+	"tun_dev_create": {
+	}
+
+	No parameters are processed for this request.
+
+
+The 'tun_dev_attach_queue' event structure describes a request to
+attach a TUN device queue.
+
+	"tun_dev_attach_queue": {
+	}
+
+	No parameters are processed for this request.
+
+
+The 'tun_dev_attach' event structure describes a request to attach to
+a TUN device.
+
+	"tun_dev_attach": {
+		"sock": {}
+	}
+
+	sock:		A JSON socket description structure describing
+			the socket requesting access to the TUN device.
+
+
+The 'tun_dev_open' event structure describes a request to open a
+network TUN device.
+
+	"tun_dev_open": {
+	}
+
+	No parameters are processed for this request.
+
+
+The 'bpf' event structure describes a request to use the BPS system
+call.
+
+	"bpf": {
+		"cmd": "NN",
+		"attr": {
+			"size": "NN"
+		}
+	}
+
+	cmd:		The BPF command that is being requested.
+
+	attr:		A JSON structure describing the attributes for
+			the command:
+
+		size:		The size of the BPF attribute description
+				that will be passed to the BPF call.
+
+
+The 'bpf_map' event structure describes a request for permission to
+access a BPF map.
+
+	"bpf_map": {
+		"map": {
+			"map_type": "NN",
+			"fmode": "NN"
+		}
+	}
+
+	map:		A JSON description structure used to describe the
+			map that will be accessed.
+
+	fmode:		The permissions to be used for accessing the
+			map.
+
+
+The 'bpf_prog' event structure describes a request for permission to
+access a BPF program.
+
+	"bpf_prog": {
+		"prog": {
+			"type": "NN",
+			"attach_type": "NN"
+		}
+	}
+
+	prog:		A JSON description structure used to describe the
+			program that access is being requested to.
+
+		type:		The type of program being described.
+
+		attach_type:	The type of attachment to be used for the
+				program.
+
+
+The 'capable' event structure describes a request to check if a
+process has a specific capability.
+
+	"capable": {
+		"cap": "NN",
+		"opts": "NN"
+	}
+
+	cap:		The capability being requested.
+
+	opts:		The options directing how the check is to be
+			performed.
+
+
+The 'capget' event structure describes a request to return the
+capability sets that a process has.
+
+	"capget": {
+		"target": "DIGEST",
+		"effective": "0xHEX",
+		"inheritable": "0xHEX",
+		"permitted": "0xHEX"
+	}
+
+	target:		The TASK_ID of the process whose capability masks
+			are to be checked.
+
+	effective:	The effective capabilities of the process.
+
+	inheritable:	The inheritable capabilities of the process.
+
+	permitted:	The permitted capabilities of the process.
+
+
+The 'capset' event structure describes a request to set the
+capabilities of a target process.
+
+	"capset": {
+		"effective": "0xHEX",
+		"inheritable": "0xHEX",
+		"permitted": "0xHEX"
+	}
+
+	effective:	The effective capabilities to be set.
+
+	inheritable:	The inheritable capabilities to be set.
+
+	permitted:	The permitted capabilities to be set.
+
+
+Security event export encodings:
+--------------------------------
+
+External trust orchestrator's read security events from the control
+plane file created for an externally modeled security namespace.
+
+The encoding of the event is in the following form:
+
+{"export": {}, "event": {}}
+
+Where the event structure is the previously described event structure
+with the following additional key:
+
+	pid:		The process identifier (PID) of the task that
+			generated the event.
+
+			The primary TSEM documentation file documents why
+			this value can be safely used in this context.
+
+
+The 'export' structure encodes the characteristics type of the
+exported event.
+
+	"export:" {
+		"type": "ASCII",
+		"TYPE": {}
+	}
+
+The 'export' structure is a self-describing structure where the ASCII
+string that serves as the value of the 'type' key will serve as the
+key value that describes the payload structure of the event, ie. the
+TYPE key will be substituted with the ASCII string.
+
+The following payload labels are defined:
+
+	event
+	async_event
+	aggregate
+	log
+
+The event and async_event payload labels both resolve to the
+previously documented 'event' payload.  The use of different labels
+for the event is to provide a means for a trust orchestrator to know
+the context that the process was running in when the event was
+generated.
+
+The 'aggregate' structure defines the hardware boot measurement
+described previously in this documentation.
+
+	"aggregate": {
+		"value": "DIGEST"
+	}
+
+	value:		The hardware aggregate measurement.
+
+
+The 'log' structure is used to describe a security event that was
+requested while the task was running in untrusted status after a
+security model violating event:
+
+	"log": {
+		"process": "ASCII",
+		"event": "ASCII",
+		"action": "ASCII"
+	}
+
+	process:	The process name (current->comm) that invoked
+			the event.
+
+	event:		The CELL description name of the event that
+			was requested.
+
+	action:		A string value indicating how the event was
+			enforced, either DENY or LOG.
