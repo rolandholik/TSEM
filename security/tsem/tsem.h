@@ -42,7 +42,7 @@
 
 /**
  * enum tsem_event_type - Ordinal value for a security event.
- * @TSEM_BPRM_SET_CREDS: Ordinal value for bprm_creds_for_exec.
+ * @TSEM_BPRM_COMMITTED_CREDS: Ordinal value for bprm_committed_creds.
  * @TSEM_TASK_KILL: Ordinal value for task kill.
  * @....: Remainder follows with a similar naming format that has
  *        TSEM_ prep ended to the raw LSM security hook name.
@@ -51,10 +51,11 @@
  *		    by the ordinal value of the hook:
  *
  * This enumeration is used to designate an ordinal value for each
- * security event, ie. LSM hook, that TSEM is implementing modeling
- * for.  This value is used to identify the hook that is either having
- * its event description being exported to an external Trusted Modeling
- * Agent (TMA) or modeled by the internal TMA implementation.
+ * security event, ie. LSM hook/event handler, that TSEM is
+ * implementing modeling for.  This value is used to identify the
+ * handler that is either having its event description being exported
+ * to an external trust orchestrator or modeled by the internal TMA
+ * implementation.
  *
  * The primary use of this enumeration is to conditionalize code paths
  * based on the security hook being processed and to index the
@@ -326,32 +327,44 @@ enum tsem_task_trust {
 
 /**
  * enum tsem_inode_state - Ordinal value for inode reference state.
- * @TSEM_INODE_COLLECTING: This ordinal value indicates that the uid/gid
- *			   values should be interpreted against the initial
- *			   user namespace.
- * @TSEM_INODE_COLLECTED: This ordinal value indicates that the uid/gid
- *			  values should be interpreted against the user
- *			  namespace that is in effect for the process being
- *		          modeled.
+ * @TSEM_INODE_COLLECTING: This ordinal value indicates that the inode
+ *			   is being opened in order to compute the
+ *			   digest of the file.
+ * @TSEM_INODE_COLLECTED: This ordinal value indicates that the digest
+ *			  file for the contents of the file referenced
+ *			  by the inode has been collected and is
+ *			  available in the digest cache attached to
+ *			  the inode.
+ * @TSEM_INODE_CONTROL_PLANE: The associated inode represents a TSEM
+ *			       control plane file that should be
+ *			      bypassed for security tests such as
+ *			      the TSEM_FILE_OPEN event.
  *
- * This enumeration type is used to specify the status of the inode
- * that is having a digest value computed on the file that it is
- * referencing.  The purpose of this enumeration is so that the
- * recursive call to the TSEM_FILE_OPEN hook, caused by the kernel
- * opening the file to compute the checksum, can be bypassed.
+ * This enumeration type is used to specify the status of the inode.
+ * The primary purpose of this enumeration is so that the recursive
+ * call to the TSEM_FILE_OPEN hook, caused by the kernel opening the
+ * file to compute the checksum, can be bypassed when the digest
+ * value of the file is being computed for inclusion in an event
+ * description.
  *
  * The state value of the inode is carried in struct tsem_inode and is
- * set and interrogated by the add_file_digest() function.  If the
- * status of the inode is TSEM_INODE_COLLECTED and the iversion of the
- * inode is the same as the collection time, the cached value for
- * currently active model digest is returned.
-
+ * set and interrogated by the event.c:add_file_digest() function.  If
+ * the status of the inode is TSEM_INODE_COLLECTED and the iversion of
+ * the inode is the same as it was at collection time, the cached
+ * value for the currently active namespace digest function is
+ * returned.
+ *
  * If the test for the relevancy of the cached digest value fails the
  * status of the inode is set to TSEM_INODE_COLLECTING.  The
  * tsem_file_open() function will check the inode status when it is
  * invoked by the integrity_kernel_read() function and if it is
- * set to 'collecting', a successful permissions check is returned so
+ * set to 'COLLECTING', a successful permissions check is returned so
  * that the kernel can open the file and compute its digest.
+ *
+ * The TSEM_INODE_CONTROL_PLANE value is used to indicate that the
+ * attached inode is part of the TSEM control plane.  This allows
+ * security events referencing this inode to bypass event processing
+ * in order to avoid a 'Heisenberg deadlock' situation.
  */
 enum tsem_inode_state {
 	TSEM_INODE_COLLECTING = 1,
@@ -363,59 +376,59 @@ enum tsem_inode_state {
  * struct tsem_task - TSEM task control structure.
  * @tma_for_ns: The context identity number of the namespace that
  *		the task has control over if any.
+ * @instance: The instance number of the task.  The global task
+ *	      instance number is incremented each time the
+ *	      bprm_committed_creds handler is invoked to compute the
+ *	      TASK_ID of a process.   This instance number represents
+ *	      the total number of unique instances of a specific body
+ *	      of executable code has been requested.
+ * @p_instance: The instance number of the parent process to the
+ *		process represented by an instance of this structure.
+ *		This value allows an execution heirarchy of executable
+ *		code to be established.
  * @trust_status: The enumeration type that specifies the trust state of
  *		  the process.
- * @task_id: The hash specific digest that identifies the process.
- * @task_key: A hash specific digest value that is used to
+ * @task_id: The TSEM task identity (TASK_ID) of the process.
+ * @p_task_id: The TASK_ID of the parent process to the process
+ *	       represented by an instance of this structure.
+ * @task_key: A security model specific digest value that is used to
  *	      authenticate a task that is running as a trust
  *	      orchestrator to a task that is under the control of the
  *	      orchestrator.
  * @context: A pointer to the tsem_context structure that defines the
  *	     modeling context that the task is running under.
- *
- * This structure is one of the two primary control structures that
- * are implemented through the LSM blob functionality.  It is
- * automatically created when the task control structure is allocated
- * for a new task that is being created.  It's role is to control the
- * status of the task with respect to its security model.
+
+ * This structure is represents the TSEM security state of a task.  It
+ * is automatically created when the task control structure is
+ * allocated for the creation of a new task.
  *
  * The trust_status member of structure determines whether or not the
  * task is in a condition to be trusted.  It represents whether or not
  * the task has requested execution of a security event that is
- * inconsistent with the model that the task is running under.
- * Reference the tsem_trust_status enumeration type for more
+ * inconsistent with the security model that the task is running
+ * under.  Reference the tsem_trust_status enumeration type for more
  * information on this member.  The trust status value is propagated
  * to any child tasks that are spawned from a task.
  *
- * The digest value that the task_id member contains is generated by
- * the tsem_tsem_bprm_creds_for_exec() function that computes the
- * task identity based on the COE identity and the CELL identity of
- * the executable that is being started.  This task_id value is used
- * in the computation of the security state point values in
- * combination with the COE and CELL identities for this event.  The
- * task_id digest creates security state points that are specific to
- * the executable file that was used to start the task.
+ * The value of task_id member is generated by the
+ * tsem_bprm_committed_creds() function that computes the task
+ * identity based TSEM TASK_ID generative function.  This task_id
+ * value is used in the computation of the security state point values
+ * in combination with the COE and CELL mappings for this event.
+ * The task_id digest creates security state points that are specific
+ * to the executable code that was used to initiate the task.
  *
  * The instance member of the structure is used to temporally
  * disambiguate instances of the same task_id.  A single 64-bit
  * counter is used to generate the instance.  This counter is
- * incremented and assigned to the instance member of the structure on
- * each invocation of the tsem_bprm_creds_for_exec() function.
+ * incremented and assigned to the instance member of the structure
+ * at the same tame the TASK_ID value is computed.
  *
  * The task_key member holds the authentication key that will be used
  * to authenticate a process that is requesting the ability to set the
  * trust status of a process.  This value is generated for the task
  * structure of the trust orchestrator when a security modeling
  * namespace is created by the orchestrator.
- *
- * As an additional protection, the creation of a namespace causes the
- * context id of the created namespace to be placed in the task that
- * will serve as the trust orchestrator for the namespace.  This
- * context id must match the context id of a process that a trust
- * control request is being sent to.  Like the authentication key
- * this value is not propagated on task allocation so only the task
- * that has nominated the security modeling namespace will have
- * possession of the necessary credentials to control it.
  *
  * The context member of the structure contains a pointer to the
  * tsem_context structure allocated when a security modeling namespace
@@ -437,13 +450,14 @@ struct tsem_task {
 /**
  * struct tsem_context - TSEM modeling context description.
  * @kref: Reference count for the context.
- * @work: Work structure for delayed release of the context.
+ * @work: Work structure for asynchronous release of the context.
  * @id: The index number of the context.
- * @instance: The instance number counter for the task identity.
- * @sealed: Status variable indicating whether or not the
+ * @sealed: A status variable indicating whether or not the
  *	    modeling context can be modified.
  * @use_current_ns: Status variable indicating which user namespace
  *		    should be used for resolution of uid/gid values.
+ *		    A true value indicates that the user namespace
+ *		    the process is running under should be used.
  * @actions: An array of enum tsem_action_type variables indicating
  *	     the type of response that should be returned in
  *	     response to the modeling of a security event that
@@ -454,31 +468,35 @@ struct tsem_task {
  *		this security context.
  * @zero_digest: The digest value for a 'zero-length' digest value.
  * @tfm: A pointer to the digest transformation structure that is to
- *	 be used for this context.
- * @inode_mutex: The lock that protects the list of inodes that are
- *		 created in a security modeling namespace.
- * @inode_list: The list of inodes created in a security modeling namespace.
+ *	 generate cryptographic checksums for the modeling context.
+ * @inode_mutex: The lock that protects the inode_list that tracks
+ *		 inodes created in the context of a security modeling
+ *		 namespace.
+ * @inode_list: The list of inodes created in a security modeling
+ *		namespace protected by the inode_mutex member of
+ *		this structure.
  * @magazine_size: The number of struct tsem_event structures that
- *		   are held in reserve for security event hooks that
+ *		   are held in reserve for security event handlers that
  *		   are called in atomic context.
  * @magazine_lock: The spinlock that protects access to the event
- *		   magazine for the security context.
+ *		   magazine.
  * @magazine_index: The bitmap that is used to track the magazine slots
  *		    that have been allocated.
- * @ws: An array of work structures that are used to refill the magazine
- *	slots.
- * @magazine: An array of pointers to struct tsem_event structures that
- *	      are pre-allocated for security hooks called in atomic
- *	      context.
+ * @ws: An array of work structures that are used to refill the event
+ *	magazine slots.
+ * @magazine: An array of pointers to tsem_event structures that are
+ *	      pre-allocated for security handlers that are called in
+ *	      atomic context.
  * @model: If the modeling context is implemented with a kernel based
  *	   trusted model agent this pointer will point to the struct
  *	   tsem_model structure that maintains the state of the
  *	   security model.
  * @external: If the modeling context is implemented with an external
- *	      modeling agent this pointer will point to the struct
+ *	      modeling agent this pointer will point to the
  *	      tsem_external structure that implements the interface to
- *	      the external trusted modeling agent.
-
+ *            the trust orchestrator that is managing the security
+ *	      modeling namespace represented by this structure.
+ *
  * This structure is used to represent the state of a TSEM security
  * modeling namespace.  A pointer to this structure is stored in the
  * struct tsem_task structure.
@@ -488,36 +506,35 @@ struct tsem_task {
  * of the information that describes the security modeling namespace
  * that is not specific to the type of namespace, ie. external or
  * internal that is being implemented.
-
+ *
  * The id member is a 64-bit counter that cannot feasibly be
- * overflowed and that is incremented for each namespace creation that
- * is created.  The root modeling namespace has a value of zero so the
+ * overflowed and that is incremented for each namespace that is
+ * created.  The root modeling namespace has a value of zero so the
  * TSEM code uses a pattern of testing this value for non-zero status
  * as an indication of whether or not the task is running in a
  * subordinate modeling namespace.
  *
  * Each security modeling namespace can have an independent
  * cryptographic digest function that is used as the compression
- * function for generating the digest values that are used to model
- * the security events that occur in a namespace.  A single struct tfm
- * is allocated for this digest function at the time that the
- * tsem_context structure is created and is maintained in this
- * structure for subsequent use during event processing.
+ * function for generating the security coefficients, and other
+ * entities, that are used to model security events that occur in a
+ * namespace.  A single struct tfm is allocated for this digest
+ * function at the time that the tsem_context structure is created and
+ * is maintained in this structure for subsequent use during event
+ * processing.
  *
  * Each cryptographic digest function has a 'zero message' value that
  * is the result of the initialization and closure of a hash function
  * that has no other input.  This zero digest value is computed at the
  * time of the creation of the array.  This digest value is returned
- * for files with zero sizes or that have pseudonyms declared for
- * them.
- *
+ * for files with zero sizes, have pseudonyms declared for them or
+ * that reside on pseudo-filesystems.
+
  * The actions array contains a specification of how each security
- * event should be handled in the event that the model detects a
- * security event consistent with the model designated for the
- * namespace.  This array allows the specification of whether the
- * model should be enforcing or logging.  Currently the specification
- * is all or nothing for all of the events, with plans to make the
- * actions individually configurable.
+ * event should be handled in the event that a TMA detects a
+ * security event inconsistent with the model designated for the
+ * security modeling namespace.  This array allows the specification
+ * of whether the events should be enforcing or logging.
  *
  * Each security event that is processed requires a struct tsem_event
  * structure that drives either the internal modeling of an event or
@@ -527,7 +544,6 @@ struct tsem_task {
  * magazine of these structures is maintained by this structure for
  * security events that run in atomic context.  The size of this
  * magazine is dynamic and is configurable for each security modeling
- * namespace that is created.
  *
  * When a tsem_event structure is allocated for an atomic event a
  * request for the refill of the slot that is vacated is dispatched to
@@ -537,10 +553,10 @@ struct tsem_task {
  *
  * All of this infrastructure is generic for each security modeling
  * namespace.  How the security modeling is done is governed by the
- * model and external members of this structure.  These members point
- * to data structures that either maintain the security model state
- * for an in kernel trusted modeling agent or handle the export of the
- * event to an external trusted modeling agent.
+ * model and externally defined members of this structure.  These
+ * members point to data structures that either maintain the security
+ * model state for an in kernel trusted modeling agent or handle the
+ * export of the event to an external trust orchestrator.
  *
  * Each task that is created in a non-root security modeling namespace
  * increments the reference count maintained in the kref member of
@@ -549,7 +565,7 @@ struct tsem_task {
  * the reference count expires, ie. when the last task using the
  * modeling namespace exits, an asynchronous workqueue request is
  * dispatched to dispose of the context.  The work member of this
- * structure is used to reference that workqueue request.
+ * structure is used to reference that workqueue.
  */
 struct tsem_context {
 	struct kref kref;
@@ -582,19 +598,21 @@ struct tsem_context {
  * struct tsem_model - TSEM internal TMA description.
  * @have_aggregate: Flag variable to indicate whether or not the
  *		    hardware aggregate value has been injected into
- *		    the mode.
+ *		    the model.
  * @base: The base value that is to be used in computing the
- *	  measurement and state values of the model.
+ *	  security state coefficients for the model.
  * @measurement: The time dependent linear extension state of the
- *		 model.
- * @state: The time independent linear extension state of the model.
+ *		 security state coefficients that have been
+ *		 experienced in the model.
+ * @state: The time independent functional description of the security
+ *	   model.
  * @point_lock: The spinlock that protects access to the list of
  *		security state coefficients in the model.
  * @point_list: A pointer to the list of security state coefficients
- *		in the model.
+ *		in the model protected by the point_lock.
  * @point_end_mutex: The mutex that is used to protect the end of the
- *		     list of security state coefficients for the
- *		     model.
+ *		     list of security state coefficients that will
+ *		     be exported.
  * @point_end: A pointer to the end of the list of security state
  *	       coefficients that will be traversed by a call to the
  *	       control plane.
@@ -647,7 +665,8 @@ struct tsem_context {
  * model.  The measurement member of this structure represents the
  * time dependent linear extension sum of the security state
  * coefficients that have been assigned to security events that have
- * occurred in the context of the model.
+ * occurred in the context of the model.  This is a measurement
+ * that has been classically maintained by a Trusted Platform Module.
  *
  * This classic integrity measurement is subject to scheduling
  * dependencies and may be invariant from run to run of the model.  It
@@ -656,18 +675,17 @@ struct tsem_context {
  *
  * The state member of this structure represents a time independent
  * linear extension sum of the security state coefficients that have
- * been generated in the model.  It represents the linear extension
- * sum of the security state coefficients that have been sorted in
- * natural (big-endian) form.
+ * been generated in the model.  It represents a functional value
+ * for the security state of the model being enforced.
  *
  * Both of these measurements are dependent on the platform hardware
  * aggregate value and the base point that has been defined for the
  * define.
  *
- * A non-zero hardware aggregate value is only available if the
- * platform has a TPM.  The have_aggregate member of this structure is
- * a flag variable that indicates whether or not the aggregate value
- * has been injected into the model.
+ * A non-NULL representation of the hardware aggregate value is only
+ * available if the platform has a TPM.  The have_aggregate member of
+ * this structure is a flag variable that indicates whether or not the
+ * aggregate value has been injected into the model.
  *
  * The base member of this structure contains a model specific
  * coefficient that is used to perturb each security state coefficient
@@ -700,9 +718,10 @@ struct tsem_context {
  *
  * The kernel based modeling agent has support for maintaining a
  * constant digest value for files, that by function, do not have a
- * fixed digest value, such as log files.  The pseudonym_list member
- * of this structure points to the list of these designations.  The
- * pseudonym_mutex structure protects this list.
+ * fixed digest value, such as log files or files residing on a
+ * pseudo-filesystem.  The pseudonym_list member of this structure
+ * points to the list of these designations.  The pseudonym_mutex
+ * structure protects this list.
  *
  * Like the struct tsem_context structure the tsem_model structure
  * maintains a magazine of structures that are used to service
@@ -726,8 +745,8 @@ struct tsem_model {
 	spinlock_t point_lock;
 	struct list_head point_list;
 	struct mutex point_end_mutex;
-	unsigned int point_count;
 	struct list_head *point_end;
+	unsigned int point_count;
 
 	spinlock_t trajectory_lock;
 	struct list_head trajectory_list;
@@ -754,6 +773,10 @@ struct tsem_model {
 
 /**
  * struct tsem_external - TSEM external TMA description.
+ * @export_only: A flag variable used to indicate that the security
+ *		 namespace is running in export only mode that
+ *		 simply presents the events to the external trust
+ *		 orchestrator.
  * @export_lock: The spinlock that protects access to the export_list
  *		 member of this structure.
  * @export_list: A pointer to the list of events waiting to be
@@ -763,15 +786,15 @@ struct tsem_model {
  *		 structure that is private to the export.c compilation
  *		 unit.
  * @dentry: A pointer to the dentry describing the pseudo-file in the
- *	    /sys/kernel/security/tsem/ExternalTMA directory that is
+ *	    /sys/kernel/security/tsem/external_tma directory that is
  *	    being used to export security event descriptions to the
  *	    external trust orchestrator for the security modeling
- *	    domain described by this structure.
- * @have_event: A flag variable to indicate that there is work queued
+ *	    namespace.
+ * @have_event: A flag variable to indicate that is work queued
  *		on the export pseudo-file for the security modeling
  *		namespace.
  * @wq: The work queue used to implement polling for the security
- *	event export file for the security modeling namespace.
+ *	event export file.
  * @magazine_size: The number of struct export_event structures that
  *		   are held in reserve for security event hooks that
  *		   are called in atomic context.
@@ -794,7 +817,7 @@ struct tsem_model {
  * associated with the security modeling namespace.  The pseudo-file
  * will be as follows:
  *
- * /sys/kernel/security/tsem/ExternalTMA/N
+ * /sys/kernel/security/tsem/external_tma/N
  *
  * Where N is the context id number of the modeling namespace.
  *
@@ -822,9 +845,10 @@ struct tsem_model {
  * of killing the workload that deviated from the security model or
  * signaling a violation of the model.
  *
- * To support the export of asynchronous events a magazine, similar to
- * the event and model structure magazines, is maintained by this
- * structure for the external modeling namespace.
+ * To support the export of asynchronous events, magazine
+ * infrastructure, similar to the event and model structure magazines,
+ * is maintained by this structure for the external modeling
+ * namespace.
  */
 struct tsem_external {
 	bool export_only;
@@ -856,7 +880,7 @@ struct tsem_external {
  * need to maintain a magazine of these structures in order to allow
  * the processing of security events that are called in atomic
  * context.  An array of this structure type is embedded in each of
- * these structures to manage the asynchronous refill of the slot in
+ * those structures to manage the asynchronous refill of the slot in
  * the magazine that was used to handle an atomic security event.
  *
  * The index member of this structure points to the slot in the
@@ -894,6 +918,9 @@ struct tsem_work {
  *	    is used to assign to the structure with the value member
  *	    used to extract the 64 bit value for export and
  *	    computation.
+ * @securebits: In a file capabilities implementation this value
+ *		specifies potential handling for process running with
+ *		a UID value of 0.
  *
  * A security state coefficient is computed from two primary entities:
  * the COE and the CELL identities.  This structure is used to carry
@@ -904,7 +931,8 @@ struct tsem_work {
  * are determined by which user namespace the security modeling
  * namespace is configured to reference.  The reference will be either
  * the initial user namespace or the user namespace that the context
- * of execution is running in.
+ * of execution is running in.  This reference can be set on a per
+ * security model namespace basis.
  */
 struct tsem_COE {
 	uid_t uid;
@@ -928,23 +956,17 @@ struct tsem_COE {
 
 /**
  * struct tsem_inode_cell - TSEM inode information.
- * @uid: The numeric user identity of the file.
- * @gid: The numeric group identity of the file.
+ * @uid: The numeric user identity assigned to the inode.
+ * @gid: The numeric group identity assigned to the inode.
  * @mode: The discretionary access mode for the file.
  * @s_magic: The magic number of the filesystem that the file resides
  *	     in.
- * @s_id: The name of the block device supporting the filesystem.
- * @s_uuid: The uuid of the filesystem that the file resides in.
+ * @s_id: The name of the block device supporting the filesystem the
+ *	  inode is on.
+ * @s_uuid: The uuid of the filesystem that contains the inode.
  *
- * This structure and the structures that follow up to the struct
- * tsem_event structure are used to identify the various entities that
- * are involved in the definition of the CELL identity for a security
- * event.
- *
- * The tsem_inode_cell structure is used to encapsulate the
- * characteristics of an inode that is used as a parameter in the
- * CELL definition of an event.
- *
+ * This structure defines the characteristics of an inode that is
+ * referenced by a security event.
  */
 struct tsem_inode_cell {
 	uid_t uid;
@@ -957,16 +979,17 @@ struct tsem_inode_cell {
 
 /**
  * struct tsem_inode_entry - Reference to a directory inode with temp files.
- * @list: List of inodes for a security modeling namespace that have
- *	  had temporary filescreated in them.
- * @tsip: A pointer to a TSEM inode containing temporary files.
+ * @list: List of directory inodes for a security modeling namespace
+ *	  that have had an inode created under the directory.
+ * @tsip: A pointer to the TSEM security description of a temporary
+ *	  file that was createdunder a directory entry.
  *
  * This structure is used to implement a list of directory inodes that
  * have had temporary files created under them in a security modeling
  * namespace.  This list is used to allow the instance identifiers
  * for inodes to be removed when the security modeling namespace
  * terminates or when the directory in which temporary files had been
- * created is emoved.
+ * created is removed.
  */
 
 struct tsem_inode_entry {
@@ -981,8 +1004,6 @@ struct tsem_inode_entry {
  *	     creating an inode.
  * @instance: The instance number of an inode being created under a
  *	      given directory.
- * @pathname: A pointer to the dentry name that the inode is being
- *	      created under.
  * @owner: The TASK_ID of the process creating the inode.
  * @pathname: A pointer to allocated memory holding the null-terminated
  *	      pathname for the inode.
@@ -995,7 +1016,7 @@ struct tsem_inode_entry {
  * A linked list of these structures is used to convey ownership and
  * instance information about a created inode from the
  * tsem_inode_create() function to the tsem_inode_init_security()
- * function so that this information can be attached to the inode via
+ * function, so that this information can be attached to the inode via
  * the tsem_inode structure.
  *
  * Secondly, a linked list of inode ownership information is
@@ -1003,12 +1024,13 @@ struct tsem_inode_entry {
  * namespace and used as mountpoints.  This list is maintained in the
  * security model description for the namespace.  Since the inode that
  * is 'covering' the mountpoint is different than the inode describing
- * the directory created for the mountpoint the ownership information
+ * the directory created for the mountpoint, the ownership information
  * for the inode needs to carried as a characteristic of the model.
  *
- * The final use of this structure is to track the instances of an
- * inode created by a TASK_ID.  This list is carried by the directory
- * in which the temporary files/directories are created.
+ * The final use of this structure is to track the instance numbers of
+ * an inode created by a TASK_ID.  This list is carried by the
+ * directory in which temporary files and directories are created.
+ *
  */
 struct tsem_inode_instance {
 	struct list_head list;
@@ -1028,7 +1050,8 @@ struct tsem_inode_instance {
  * @instance: The instance number of an inode that was created.
  * @owner: The TASK_ID of the process that created the path.
  * @dev: The device number that the filesystem is mounted on.
- * @pathname: The pathname from the root.
+ * @pathname: An allocated and null-terminated buffer containing the
+ *	      path from the root directory to the file.
  *
  * The tsem_path structure is used to carry information about the
  * pathname and ownership of a filesystem object that is an argument
@@ -1046,7 +1069,9 @@ struct tsem_path {
 
 /**
  * struct tsem_dentry - TSEM dentry definition.
- * @inode: The characteristics of the inode associated with a dentry.
+ * @have_inode: A flag variable to indicate that the dentry has an
+ *		inode associated with it.
+ * @inode: The TSEM characteristics of the inode associated with a dentry.
  * @path: The path definition for the dentry.
  *
  * This structure is used to contain the TSEM representation of a
@@ -1061,38 +1086,38 @@ struct tsem_dentry {
 /**
  * struct tsem_inode_args - Arguments for inode security handlers.
  * @mode: The access mode requested for an inode being created.
- * @dev: For the inode_mknod LSM hook the device specification for
- *	 which the device node is being created.
+ * @dev: For the inode_mknod handler, the device specification for
+ *	 device node being created.
  * @in.old_name: In the case of the tsem_inode_symlink handler, this
  *		 member contains a pointer to the filename of the target
  *		 of the symbolic link.
- * @in.dir: The inode argument to an inode security handler.
- * @in.new_dir: For the tsem_inode_rename handler, the new_dir inode
- *		argument to the handler.
+ * @in.dir: For handlers processing rename or movement of an inode,
+ *	    the inode of the directory that contains the inode to be moved.
+ * @in.new_dir: For handlers processing the rename or movement of an
+ *		inode, the inode of the directory that will contain
+ *		the destination inode.
  * @in.dentry: The dentry argument to inode event handlers that take
  *	       a dentry.
- * @in.new_dentry: In the case of the tsem_inode_link handler this
- *		   member contains a pointer to the dentry describing
- *		   the location of the link being created.
+ * @in.new_dentry: In the case of handlers that result in a new dentry
+ *		   a pointer to that dentry.
  * @out.old_name: In the case of the tsem_inode_symlink handler this
  *		  member contains a pointer to a copy of the name of
  *		  the target of symbolic link.  This second
  *		  representation is used to avoid warnings about the
  *		  use of a constant character pointer in the arguments
  *		  to the handler.
- * @out.dir: The TSEM representation of the inode represent a directory
+ * @out.dir: The TSEM representation of the inode representing a directory
  *	     that the security handler is acting on.
- * @out.new_dir: For the tsem_inode_rename handler, the TSEM representation
+ * @out.new_dir: For inode movements or renames, the TSEM representation
  *		 of the new_dir argument.
  * @out.dentry: The TSEM representation of the dentry argument to a
  *		security handler.
- * @out.new_dentry: In the case of the inode_link handler the
+ * @out.new_dentry: For inode movements or renames, the
  *		    representation of the new location of the inode.
  *
  * This structure is used to carry input parameters and their
- * retained and translated TSEM equivalent for most of the LSM hooks
- * that are invoked to handle security decisions about inode based
- * operations.
+ * retained and translated TSEM equivalent for LSM security handlers
+ * that are acting on inodes and/or dentries.
  */
 struct tsem_inode_args {
 	umode_t mode;
@@ -1121,18 +1146,19 @@ struct tsem_inode_args {
  * struct tsem_file_args - TSEM file argument description.
  * @cmd: The command argument for security handlers that take a
  *       command type arguement, ie. file_ioctl, file_fcntl, file_lock
+ *	 handlers.
  * @in.pseudo_file: A flag indicating that the file was on a
  *		    pseudo-filesystem and will not have a digest value.
  * @in.file: A structure to the file that will be modeled.
- * @out.path: A description of the pathname of the file.
- * @out.inode: A description of the inode that represents the file.
+ * @out.path: The TSEM representation of the pathname to a file.
+ * @out.inode: The TSEM representation of the inode that backs a file
+ *	       description
  * @out.flags: The flags value from the file structure.
  * @out.digest: The cryptographic checksum of the contents of the file.
  *
- * The tsem_file_args structure is used to carry the input file
- * description for security hooks that manipulate a file.  The
- * retained security event description arguments are in the out
- * structure.
+ * This structure is used to carry the input file description and
+ * their TSEM retention values for security event handles that are
+ * provided with a struct file pointer.
  */
 struct tsem_file_args {
 	unsigned int cmd;
@@ -1161,7 +1187,7 @@ struct tsem_file_args {
  *	  structure will be populated with the TSEM description of the
  *	  file.
  * @prot: The protections that are being requested for the mapping.
- * @flags: The control flags to memory mapping call.
+ * @flags: The control flags to the memory mapping call.
  *
  * This structure is used to encapsulate the arguments provided to the
  * tsem_mmap_file security event handler.  The anonymous member of
@@ -1186,7 +1212,8 @@ struct tsem_mmap_file_args {
  *	  created is kernel or userspace based.
  * @owner: The TASK_ID of the task that created the socket.
  *
- * This structure is used to encapsulate common socket information.
+ * This structure is used to encapsulate socket information for
+ * security handlers that take a socket description as an argument.
  */
 struct tsem_socket {
 	int family;
@@ -1198,14 +1225,15 @@ struct tsem_socket {
 
 /**
  * struct tsem_socket_args - TSEM socket arguments
- * @value: A numeric value passed to the LSM hook.
- * @in.socka: A pointer to the socket argument of the LSM hook.
+ * @value: Possible numeric values passed to event handlers.
+ * @optname: The option name for the tsem_socket_setsockopt call.
+ * @in.socka: A pointer to the socket argument of a security handler.
  * @in.sockb: A pointer to a second socket argument that may be supplied
  *	      to the handler.
- * @in.addr: In the case of the socket_sendmsg handler a pointer
- *	     to the recipient of the message.
+ * @in.addr: In the case of handlers that accept an address
+ *	     description a pointer to that description.
  * @out.socka: The TSEM representation of the first socket argument.
- * @out.sockjb: The TSEM representation of the second socket argument.
+ * @out.sockb: The TSEM representation of the second socket argument.
  * @out.have_addr: A boolean flag used to indicate that either the
  *		   ipv6 or ipv6 union members have been populated.
  * @out.ipv4: The IPV4 address of an AF_INET socket.
@@ -1214,7 +1242,7 @@ struct tsem_socket {
  * @out.mapping: The checksum of the socket address if the socket type
  *		 is other than AF_INET, AF_INET6 or AF_UNIX.
  *
- * This structure is used to encapsulate arguments provided to LSM
+ * This structure is used to maintain arguments provided to LSM
  * hooks that handle generic socket security events.
  */
 struct tsem_socket_args {
@@ -1244,7 +1272,7 @@ struct tsem_socket_args {
 
 /**
  * struct tsem_netlink_args - TSEM netlink event parameters
- * @in.sock: The sock argument to the LSM hook.
+ * @in.sock: The sock argument to the LSM event handler.
  * @in.parms: The pointer to the netlink parameters from the sk_buff
  *	      structure that was passed to the LSM hook.
  * @out.sock: The TSEM representation of the sock argument.
@@ -1301,8 +1329,8 @@ struct tsem_netlink_args {
  * @out.inode: The TSEM representation of the inode backing the dentry
  *	       argument to an LSM handler.
  * @out.path: The TSEM representation of the incoming path argument.
- * @out.dev_name: A copy of the dev_name argument.
- * @out.type: A copy of the filesystem type.
+ * @out.dev_name: A an allocated copy of the dev_name argument.
+ * @out.type: A allocated copy of the filesystem type.
  * @out.path2: The TSEM representation of the second path argument if
  *	       used.
  *
@@ -1352,8 +1380,9 @@ struct tsem_sb_args {
  * @source: The task identifier of the process sending the signal
  * @target: The task identifier of the target process.
  *
- * This structure is used to encapsulate the arguments provided to the
- * tsem_task_kill security event handler.
+ * This structure is used to encapsulate and retain the arguments
+ * provided to the tsem_task_kill security event handler.
+ *
  */
 struct tsem_task_kill_args {
 	union {
@@ -1476,18 +1505,22 @@ struct tsem_inode_attr_args {
  *	       will be copied into the tsem_file structure.
  * @in.name: A pointer to the name of the extended attribute being
  *	     queried.
- * @out.path: The path to object that is the subject of the security
- *	      event hook.
- * @out.inode: The characteristics of the inode backing the dentry
- *	       argument.
- * @out.name: A pointer to the name of the attribute being queried.
+ * @in.size: The size of an extended attribute that may be set.
+ * @in.flags: The flag value specifying how an extended attributte is
+ *	      to be set.
+ * @out.dentry: The TSEM representation of the path that is being
+ *		action on.
+ * @out.name: The name of an attribute to be set or retrieved.
  * @out.value: The binary value of the extended attribute that was
  *	       passed to the inode_setxattr handler.  For an
  *	       internally modeled namespace this value will be freed
  *	       after the coefficient for the event is mapped.
  * @out.encoded_value: The Base64 encoding of the extended attribute
  *		       value that is used for either the export of
- *		       the event or the trajectory history.
+ *		       the event or the trajectory history.  This
+ *		       memory will be allocated in order to support
+ *		       encoding of the attribute.
+ * @out.size: The size of the att
  * @out.flags: The flags value that was passed to the inode_setxattr
  *	       handler.
  *
@@ -1521,14 +1554,14 @@ struct tsem_inode_xattr_args {
 
 /**
  * struct tsem_kernel_args - TSEM event descriptions for kernel requests.
- * id: For the tsem_kernel_load_data handler the of the load type
- *     being requested.
- * contents: The boolean flag used to indicate whether or not the
+ * @id: For the tsem_kernel_load_data handler the indicator of the type
+ *     of data being requested.
+ * @contents: The boolean flag used to indicate whether or not the
  *           security_kernel_post_load_data handler should be called.
- * @in.kmod_name: A pointer to the buffer containing the name of the
- *		   module to load.
  * @in.file: A pointer to the file structure passwd to the
  *	     tsem_kernel_file_file handler.
+ * @in.kmod_name: A pointer to the buffer containing the name of the
+ *		   module to load.
  * @out.kmod_name: The retained copy of the kernel module name.
  * @out.file: The TSEM representation of the file structure that was
  *	      passed to the tsem_kernel_read_file handler.
@@ -1559,10 +1592,13 @@ struct tsem_kernel_args {
 
 /**
  * struct tsem_time_args - TSEM event description for setting the time
- *
+ * @have_ts: A flag variable to indicate if the time in seconds and
+ *	     nanoseconds is valid.
  * @seconds: The number of seconds passed to the time set function.
  * @nsecs: The number of nanoseconds to set the time to.
- * @mwest: The minutes west of GMT for the time being set.
+ * @have_tz: A flag variable to indicate if the timezone information
+ *	     is valid.
+ * @minuteswest: The minutes west of GMT for the time being set.
  * @dsttime: The daylight savings time offset.
  *
  * This structure is a simple encapsulation of the arguments passed to
@@ -1583,16 +1619,11 @@ struct tsem_time_args {
  * @cmds: The cmds argument from the security_quotactl handler.
  * @type: The type argument from the security_quotactl handler.
  * @id: The id argument from the security_quotactl handler.
- * @in.sb: The superblock pointer argument from the security_quotactl handler.
  * @in.dentry: In the case of the quota_on LSM handler the dentry
  *	       argument to the handler.
- * @out.path: In the case of the quotactl handler the path to the
- *	      mountpoint of the superblock.  In the case of the
- *	      quota_on handler the dentry being checked.
- * @out.inode: In the case of the quotactl handler the inode
- *	       description of the filesystem mountpoint.  In the
- *	       case of the quota_on handler the inode backing the
- *	       dentry that is being checked.
+ * @in.sb: The superblock pointer argument from the security_quotactl handler.
+ * @out.dentry: The TSEM dentry representation of a dentry arguement
+ *		to the quota handlers.
  * @out.s_flags: In the case of the quotactl handler the flags from
  *		 the superblock of the filesystem.
  * @out.fstype: In the case of the quotactl handler the filesystem
@@ -1624,9 +1655,16 @@ struct tsem_quota_args {
 /**
  * struct tsem_key_args - TSEM key handler arguments.
  * @flags: The flags value passed to the key_alloc handler.
- * @in.cred: A pointer to the credentials structure passed to the
- *	     LSM hook.
- * @out.cred: The TSEM representation of the credentials structure.
+ * @in.cred: A pointer to the credential structures passed to the
+ *	     security handlers.
+ * @out.possessed: A flag variable indicating if a key is owned by a
+ *		  task.
+ * @out.uid: The owner id of a key.
+ * @out.gid: The group id of a key.
+ * @out.flags: The flags value retained for a key operation.
+ * @out.cred: The retained  credentials of a process attempting to
+ *	      access a key.
+ * @out.perm: The retained permissions value of a key.
  *
  * This structure is used to hold the arguments to the LSM hooks that
  * handle key security event and their retained TSEM equivalents.
@@ -1719,17 +1757,22 @@ struct tsem_ipc_perm {
 
 /**
  * struct tsem_ipc_args - TSEM arguments for IPC security handlers.
- * @perm_flag: For the tsem_ipc_permission handler the permission
+ * @perm_flag: For the tsem_ipc_permission handler the permission flag.
  * @value: A signed integer value that serves as an argument type to
  *	   a number of the handlers.
  * @nsops: In the came of the tsem_sem_semop handler the nsops argument
  *	   to the handler.
+ * @type: The type argument to the msg_queue_msgrcv handler.
  * @in.perm: The kern_ipc_perm structure that is passed to multiple
  *	     handlers that define the permissions for the IPC
  *	     object whose security status is being checked.
+ * @in.target: For the msg_queue_msgrc handler the TASK_ID of the
+ *	       process ending the message.
  * @out.perm: The TSEM translated versions of the perm pointer that
  *	      was passed to a handler.
  * @out.owner: The TASK_ID of the task that created the IPC resource.
+ * @out.target: The retained version of the TASK_ID describing the
+ *		sender of a message.
  *
  * This structure is an encapsulation of the arguments and their
  * retention values for the LSM security handlers that make security
@@ -1757,8 +1800,8 @@ struct tsem_ipc_args {
 
 /**
  * struct tsem_capability_args - TSEM arguments for capability handling.
- * @cap: A capability being specified.
- * @opts: Capability check options.
+ * @cap: A capability specified for an event.
+ * @opts: Options for handling a capabilities command.
  * @effective: The effective capability that is being manipulated.
  * @inheritable: The inheritable capability that is being manipulated.
  * @permitted: The permitted capability that is being manipulated.
@@ -1782,93 +1825,101 @@ struct tsem_capability_args {
 
 /**
  * struct tsem_event - TSEM security event description.
- * @index: The index number of the slot in the structure magazine that
- *	   is being refilled.
- * @u: A union that holds pointers to the structure whose magazine is
- *     being refilled.
+ * @kref: Reference count structure to track event lifetime.
+ * @list: The list of security events in a security modeling namespace.
  * @work: The work structure that manages the workqueue being used to
- *	  refill the magazine entry.
+ *	  refill the event magazine structures.
  * @event: The enumeration type describing the security event that the
  *	   structure is defining.
  * @locked: A boolean flag used to indicate whether or not the
  *	    security event is running in atomic context.
+ * @instance: The process instance number that is executing the
+ *	      event described by the structure.
+ * @p_instance: The parent process instance number of the process
+ *		executing the event described by the structure.
  * @pid: The process id number, in the global pid namespace, of the
- *	 task that is requesting approval for a security event.
- * @pathname: If the event is referencing a file this pointer will
- *	      point to a null-terminated buffer containing the
- *	      pathname to the file in the mount namespace that the
- *	      process is running in.
+ *	 task that is executing the security event.
  * @comm: A pointer to a null terminated buffer containing the name of
  *	  the process that is requesting the security event.
  * @digestsize: The size in bytes of the cryptographic hash function
- *		that is being used in the namespace in which the event
- *		is being recorded.
- * @task_id: The TSEM task identifier of the process that generated the
+ *		that is being used in the security modeling namespace
+ *		in which the event occurred.
+ * @task_id: The TSEM TASK_ID of the process that generated the
  *	     security event described by an instance of this
  *	     structure.
  * @mapping: The security state coefficient that the event described
  *	     by this structure generates.
- * @COE: The struct tsem_COE structure that describes the Context Of
+ * @COE: The tsem_COE structure that describes the Context Of
  *	 Execution that generated the event described by this
  *	 structure.
- * @file: If the security event references a file this structure will
- *	  contain the struct tsem_file structure that describes the
- *	  characteristics of the file.
- * @no_params: This boolean value is set if the security event if
- *	       the security event is being generically modeled and will
- *	       have no characterizing parameters.
+ * @no_params: A boolean value that is set if the security event
+ *	       has no characterizing parameters.
  * @CELL: The CELL union is used to hold the data structures that
- *	  characterize the CELL identity of the event.
- * @CELL.file_args: The structure descriving the charactertics of a
- *		    security event having a struct file argument.
+ *	  characterize the CELL mapping of the event.
+ * @CELL.value: A single numeric value that may be used in
+ *		characterizing an event.
+ * @CELL.netlink: A structure describing  parameters that characterize
+ *		  an event inolving a netlink event.
+ * @CELL.inode: A structure describing characters of security events
+ *		that address inode manipulation operations.
+ * @CELL.file: A structure characterizing a file used as an arguement
+ *	       for a security event.
  * @CELL.mmap_file: The structure describing the characteristics of
- *		    a mmap_file security event.
- * @CELL.unix_socket: The structure describing characteristics for the
- *		      tsem_unix_stream_connect and tsem_unix_may_send
- *		      handlers.
- * @CELL.socket_create: The structure describing the characteristics
- *			of a socket_create security event.
- * @CELL.socket_accept: The structure describing the characteristics
- *			of a socket accept security event.
- * @CELL.task_kill: The structure describing the characteristics of a
- *		    task_kill security event.
- * @CELL.inode_attr: The structure describing the characteristics for
- *		     the inode_getattr and inode_setattr handlers.
- *			a tsem_inode_getattr event.
- * @CELL.inode_xattr: The structure describing the characteristics of
- *		      the security events that are handling security
- *		      decisions for the manipulation of extended
- *		      attributes.
- * @CELL.inode_create: The structure describing the input and
- *		       TSEM translated values of the arguments for
- *		       the inode_create event.
- * @CELL.bpf: The structure describing the input and TSEM translated
- *	      and retained arguments for the LSM security hooks that
- *	      manage bpf related security decisions.
+ *		    a security event involving a memory mapping event.
+ * @CELL.socket: A structure characterizing security events that
+ *		 involve a socket.
+ * @CELL.kernel: A structure characterizing kernel I/O or memory
+ *		 loading opeations.
+ * @CELL.task_kill: The structure describing the characteristics of an
+ *		    event sending a signal to a process.
+ * @CELL.task_prlimit: A structure describing a security event that
+ *		       sets process resource limits.
+ * @CELL.task_prctl: A structure describing an event involving the
+ *		     process control operations.
+ * @CELL.inode_attr: A structure describing events involving getting
+ *		     or setting of inode attributes.
+ * @CELL.inode_xattr: A structure describing events involving actions
+ *		      on inode extended attributes.
+ * @CELL.key: A structure describing events involving manipulation of
+ *	      a kernel key.
+ * @CELL.sb: A structure describing events that involve the a
+ *	     filesystem superblock.
+ * @CELL.quota: A structure describing events that involve the
+ *		manipulation of filesystem quotas.
+ * @CELL.time: A structure describing the setting of the system time
+ *	       or timezone.
+ * @CELL.bpf: A structure describing involves involving manipulation
+ *	      of BPF functionality
+ * @CELL.ipc: A structure describing events that are manipulating
+ *	      shared memory structures or operations.
+ * @CELL.capability: A structure describing events that manipulate
+ *		     the capabilities of a process.
  *
  * This structure is the primary data structure for describing
- * security events that are registered in a security modeling
- * namespace.  Each unique security coefficient in the namespace will
- * have one of these structures attached to it.
+ * security events that occur in a security modeling namespace.  Each
+ * unique security coefficient in the namespace will have one of these
+ * structures associated with it.
  *
  * This structure encapsulates the following three major sources of
  * information about the event:
  *
  * * A description of the process initiating the event.
- * * The characteristics that form the COE identity of the event.
- * * The characteristics that form the CELL identity of the event.
+ * * The characteristics of the COE identity of the event.
+ * * The characteristics of the CELL identity of the event.
  *
  * Since one event description has to ultimately characterize any
- * security event that can occur the strategy is to use a union that
+ * security event that can occur, the strategy is to use a union that
  * contains security event specific structures that describe the
- * characteristics of the event.
+ * characteristics of the event.  The event member of the structure
+ * is used to indicate the structure that should be referenced.
  *
- * The kref member of this structure is used to signal when the
- * structure is to be deleted.  For example, in the case of an
+ * The kref member of this structure is used to track the lifetime of
+ * an instance of this structure.  For example, in the case of an
  * externally modeled event, when the export of the event description
  * is complete.  In the case of an internally modeled namespace the
  * structure will be released if it represents a security state
- * coefficient that is already present in the model.
+ * coefficient that is already present in the model.  The structures
+ * are also released when an internally modeled namespace terminates.
  *
  * The work member of this structure is used to support asynchronous
  * updates to a TPM for the root modeling domain.  Asynchronous
@@ -1877,27 +1928,16 @@ struct tsem_capability_args {
  * cannot be scheduled away while the TPM transaction completes.
  *
  * The tsem_event_allocate() function is called by a TSEM security
- * event handler to allocate and populate this structure.  The struct
- * tsem_event_parameters structure is used to encapsulate all of the
- * different structure types that are needed to characterize all of
- * the different security events that occur.
- *
- * The tsem_event_allocate() function is called by either the
- * tsem_map_event() or tsem_map_event_locked() functions.  After
- * allocating and populating an event description structure the
- * mapping functions generate a security state coefficient from the
- * information in this structure.
- *
- * The two separate function call points for mapping are to allow the
- * security event handlers to indicate the context in which the
- * security event is occurring, ie. sleeping or atomic context.  After
- * this point the context of the security event is represented by the
- * locked member of this structure.
+ * event handler to allocate and populate an instance of this
+ * structure.  The locked member of this structure is used to
+ * determine whether the structure should be allocated from the
+ * kmem_cache based structure pool or from the magazine of structures
+ * help for processes running in atomic context.
  *
  * After the event is mapped this structure is either passed to the
  * internal trusted modeling agent or the contents of this structure
  * is exported to the trust orchestrator attached to the namespace for
- * modeling by an external trust modeling agent.
+ * modeling by an external trusted modeling agent.
  */
 struct tsem_event {
 	struct kref kref;
@@ -1946,32 +1986,29 @@ struct tsem_event {
 
 /**
  * struct tsem_event_point - TSEM security coefficient characteristics.
- * @list: The list structure used to link together all of the security
- *	  state coefficients for a modeling namespace.
+ * @list: The list of all the security state coefficients for a
+ *	   modeling namespace.
  * @valid: A boolean value use to indicate whether or not the security
  *	   state point is a valid coefficient in the model.
  * @count: The number of times this coefficient has been expressed by
- *	   security model for the namespace.
- * @point: The security state coefficient for the point created by
- *	   the cryptographic hash function being used for the modeling
- *	   namespace.
+ *	   the security modeling namespace.
+ * @point: The security state coefficient for a security event.
  *
  * This structure is used by internal trusted modeling agents to
- * represent each unique state point in a security model.  Security
- * state coefficients are unique within a model so only one struct
- * tsem_event_point structure will be generated regardless of how many
- * times the security event that generates the point occurs.  The
- * count member of this structure represents the total number of
- * security events that have occurred that have generated the point.
+ * represent each unique security coefficient in a security model.
+ * Security state coefficients are unique within a model so only one
+ * struct tsem_event_point structure will be generated regardless of
+ * how many times the security event that generates the point occurs.
+ * The count member of this structure represents the total number of
+ * security events that have occurred generated this point.
  *
  * The valid member of this structure is used to flag whether this
  * is consistent with the model for the namespace or was generated by
  * a 'forensic', ie. out of model, event.
  *
  * Within each security namespace these structures are linked together
- * in a list that describes the functional value of the security model
- * assigned to the namespace.  Entries are only added to this list and
- * never removed.
+ * in a list that describes the functional security value of the
+ * namespace.  Entries are only added to this list and never removed.
  *
  * The desired state of a security model is created by using the TSEM
  * control plane to inject a list of acceptable security state
@@ -1991,54 +2028,58 @@ struct tsem_event_point {
  * struct tsem_inode - TSEM inode status structure.
  * @create_mutex: The mutex that protects the create_list.
  * @create_list: The list of structures that contain ownership and instance
- *		 information for an inode created under a directory.
- * @d.instance_mutex: The mutex protecting the instance_list.
- * @d.instance_list: The list of task identities that have created inodes
- *		     under a directory and the instance count of inodes
- *		     that has been created by individual task identities.
- * @f.digest_mutex: The mutex protecting the digest_list.
- * @f.digest_list: A list of structures containing the various digest
- *		   values that have been calculated for a file.
- * @status: The digest collection state of the inode.  See the
- *	    discussion of enum tsem_inode_state for what information
- *	    is conveyed by the value of this structure member.
+ *		 information for inodes created under a directory.
+ * @instance_mutex: The mutex protecting the instance_list.
+ * @instance_list: The list of task identities that have created inodes
+ *		   under a directory and the instance count of inodes
+ *		   for each TASK_ID.
+ * @digest_mutex: The mutex protecting the digest_list.
+ * @digest_list: A list of structures containing the digest values that
+ *		 have been calculated for the inode.
+ * @status: The status of the inode.  See the discussion of enum
+ *	    tsem_inode_state for the information that is conveyed
+ *	    by this member.
  * @created: A boolean flag to indicate that this inode was created
- *	     in the context of the security modeling namespace.
- * @creator: The identity of the security modeling namespace that
+ *	     in the context of a security modeling namespace.
+ * @creator: The context identity of the security modeling namespace that
  *	     created the inode.
- * @instance: The instance number of the inode.
- * @owner: The identity of the task that created the inode.
+ * @instance: The inode instance number for the TASK_ID that created
+ *	      the inode.
+ * @owner: The TASK_ID of the process that created the inode.
  *
- * This structure is one of the TSEM control structures that are
- * implemented through the LSM blob functionality.  It is
- * automatically created when the inode structure is created for
- * system resources that are referenced by a struct inode structure.
+ * This structure is used to contain the TSEM security state of an
+ * inode.
  *
- * This structure has three primary purposes.  The status member is used
- * to signal that the tsem_file_open() function should return that
- * permission to access the file is returned when the security hook is
- * invoked by the integrity_kernel_read() function.  See the
- * discussion on enum tsem_inode_state to more details.
+ * Three lists are managed by this structure:
  *
- * The second purpose of this structure is to maintain a list of
- * digest values that have been computed by the inode that this
- * structure references.  Maintenance of multiple digest values is
- * required since there is no concept of a fixed digest function for
- * TSEM as each modeling namespace can have its own digest function.
+ * An inode that is a directory will have inodes that are create under
+ * it added to the create_list.  This list will be traversed when the
+ * inode is instantiated so creation information about the inode can
+ * be registered in the tsem_inode structure attached to that inode.
  *
- * The third purpose is to track the ownership information for the
- * inode.  The ownership information allows an inode to be tracked to
- * individual instances of inodes that are created by a specific
- * task identity.
+ * The instance_list is also maintained by a directory inode and is
+ * used to track the instances of an inode that is created under the
+ * directory by specific TASK_ID's.
  *
- * The fourth purpose is maintain the list of digest values that have
- * been computed for a file that the inode is attached to.  Each
- * digest value in use has a struct tsem_inode_digest structure
- * allocated for it.  The digest_list member of this structure points
- * to a list of these structures.
+ * The digest_list is used for inodes that are backing files and is
+ * used to track the various cryptographic digest values that have
+ * been computed for the file.  This supports the use of multiple
+ * simultaneous digest values across multiple security modeling
+ * namespaces.
  *
- * The mutex implemented in this structure should be held by any
- * process that is accessing the list of these structures.
+ * The status member of this function serves two purposes:
+ *
+ * For file based inodes the status member is used to indicate
+ * whether or not the digest value is being computed.  The
+ * tsem_file_open handler uses this status variable to determine
+ * whether or not the modeling of an event should be bypassed if the
+ * file is being opened by the kernel to compute the digest value of
+ * the file.
+ *
+ * The second role of the status member is to indicate that the inode
+ * is one of the TSEM control plane files.  This allows modeling of
+ * events involving this inode to be bypassed in order to avoid a
+ * 'Heisenberg Deadlock' situation.
  */
 struct tsem_inode {
 	struct mutex create_mutex;
@@ -2061,10 +2102,10 @@ struct tsem_inode {
  * struct tsem_ipc - TSEM IPC security structure.
  * @owner: The identity of the task that created the IPC resource.
  *
- * Like the tsem_inode structure this structure is allocated for
- * IPC resources that are created.  This structure allows IPC
- * security handlers to include in their security coefficient the
- * task identity of the process that created the resource.
+ * This structure is used to track the TASK_ID of the process that
+ * created the IPC memory resource so that information can be
+ * integrated into security coefficients that are generated for
+ * shared memory events.
  */
 struct tsem_ipc {
 	u8 owner[HASH_MAX_DIGESTSIZE];
@@ -2074,29 +2115,31 @@ struct tsem_ipc {
  * struct tsem_inode_digest - Digest specific file checksum.
  * @list:	The list structure used to link multiple digest values
  *		for an inode.
+ * @name:	A pointer to an allocated null-terminated character
+ *		buffer containing the name of the hash function that
+ *		generated the digest value represented by an instance
+ *		of this structure.
  * @version:	The version number of the inode that generated the digest
  *		value that is currently represented.
- * @name:	A pointer to a null-terminated character buffer containing
- *		the name of the hash function that generated the current
- *		digest value.
- * @value:	The digest value of the file.
+ * @value:	The digest value of the file represented by the inode..
  *
  * A linked list of these structures is maintained for each inode that
  * is modeled by TSEM and is used to support multiple hash specific
  * digest values for a file represented by the inode.  The tsem_inode
  * structure that represents the TSEM security status of the inode
- * contains the pointer to this list of structures.
+ * contains a list of these structures.
+ *
+ * The name member of structure contains the name of the hash function
+ * that generated the checksum value.  This name is used to locate the
+ * correct structure by comparing its value against the hash function
+ * that is being used by the security modeling namespace that is
+ * traversing the list attempting to locate a previously computed
+ * digest value.
  *
  * The version member of the structure contains the inode version number
  * that was in effect when the last digest value of this type was computed.
  * This version number value is used to detect changes and to trigger an
  * update of the digest value.
- *
- * The name member of structure contains the name of the hash function
- * that generated the checksum value.  This name is used to locate the
- * correct structure by comparing its value against the hash function
- * that is being used for the modeling domain that is accessing the
- * inode.
  */
 struct tsem_inode_digest {
 	struct list_head list;
@@ -2110,21 +2153,20 @@ struct tsem_inode_digest {
  * variables used in the TSEM implementation.
  *
  * The tsem_blob_sizes variable is used by the LSM infrastructure to
- * describe the amount of space that will be needed by the struct
- * tsem_task and struct tsem_inode structures.
+ * describe the amount of space that will be needed by the TSEM
+ * security structures.
  *
  * The tsem_names array is defined in the tsem.c file and contains an
  * array of pointers to the strings that define the names for each of
- * the TSEM security event handles.  The enum tsem_event_type
+ * the TSEM security event handlers.  The enum tsem_event_type
  * enumeration indexes this array.
  *
- * The tsem_root_actions array is also indexed by the enum
- * tsem_event_type enumeration and is used to determine the type of
- * response that a TSEM security event handler is to return to the
- * caller, ie. either logging or enforcing.  The contents of this
- * array is inherited by copying the array into the struct
- * tsem_context structure for modeling namespaces that are subordinate
- * to the root model.
+ * The tsem_root_actions array is also indexed by the tsem_event_type
+ * enumeration and is used to determine the type of response that a
+ * TSEM security event handler is to return to the caller, ie. either
+ * logging or enforcing.  The contents of this array is inherited by
+ * copying the array into the struct tsem_context structure for
+ * modeling namespaces that are subordinate to the root model.
  */
 extern struct lsm_blob_sizes tsem_blob_sizes;
 extern const char * const tsem_names[TSEM_EVENT_CNT];
