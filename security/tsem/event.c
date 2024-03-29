@@ -1,10 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /*
- * Copyright (C) 2023 Enjellic Systems Development, LLC
+ * Copyright (C) 2024 Enjellic Systems Development, LLC
  * Author: Dr. Greg Wettstein <greg@enjellic.com>
  *
- * This file manages the data structures used to define a security event.
+ * This file handles the creation and population of the tsem_event
+ * structure that describes each security event that occurs.  The
+ * structures that are held in the CELL union of the tsem_event
+ * structure are used to deliver the characterizing parameters of a
+ * security into the tsem_event_init() function.
+ *
+ * Most of the structures used to characterize a security event use
+ * a strategy where a union is used to enclose an 'in' and 'out'
+ * structure.  The parameters that are relevant to the TSEM
+ * characterization of an event are placed in the 'in' structure.  The
+ * routines in this function are responsible for propagating these
+ * characteristics into the 'out' structure for the lifetime of the
+ * structure.
  */
 
 #include <linux/iversion.h>

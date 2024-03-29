@@ -1,11 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /*
- * Copyright (C) 2023 Enjellic Systems Development, LLC
+ * Copyright (C) 2024 Enjellic Systems Development, LLC
  * Author: Dr. Greg Wettstein <greg@enjellic.com>
  *
- * This file implements mapping of events into security state
- * coefficients.
+ * This file is responsible for mapping the characteristics of
+ * security events into a security state coefficient for the internal
+ * trusted modeling agent implementation.  The primary TSEM
+ * documentation describes the generative functions that are used to
+ * conduct this mapping.
+ *
+ * The tsem_map_event() function is called by the tsem_model_event()
+ * to generate the security state coefficients for the internal
+ * modeling implementation.
+ *
+ * The other major role of this file is to provide the tsem_map_task()
+ * function that is used to generate the TASK_ID for a process.  This
+ * function is called from the tsem_bprm_committed_creds() function.
  */
 
 #include <linux/magic.h>

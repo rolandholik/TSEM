@@ -1,10 +1,47 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /*
- * Copyright (C) 2023 Enjellic Systems Development, LLC
+ * Copyright (C) 2024 Enjellic Systems Development, LLC
  * Author: Dr. Greg Wettstein <greg@enjellic.com>
  *
- * This file implements TSEM namespaces.
+ * This file is responsible for managing the TSEM namespace
+ * implementation that allows security models to be implemented for
+ * workloads that are isolated from the root security modeling
+ * namespace.  The namespaces that TSEM implements are
+ * non-heirarchical and are at only a single depth below the root
+ * security modeling namespace.
+ *
+ * Security modeling namespaces are identified by a 64-bit context
+ * identity with context identity 0 being reserved for the root
+ * security modeling namespace.
+ *
+ * The modeling of a namspace can be done by either an internal
+ * trusted modeling agent implementation or by a trusted modeling
+ * agent implementation associated with an external trust
+ * orchestrator.
+ *
+ * This file is responsible for creating and setting up a tsem_context
+ * structure that defines the modeling context being used by a
+ * security modeling namespace.  This structure encapsulates
+ * functionality that is generic to the namespace, such as the
+ * cryptographic digest function that is used for security coefficient
+ * mapping.
+ *
+ * Information for managing externally modeled namespaces are
+ * maintained in the tsem_context structure while information for
+ * internally modeled namespaces is maintained in the tsem_model
+ * structure.  These structures are populated in the tsem_context
+ * structure depending on whether or not an internal or externally
+ * modeled namespace is being created.
+ *
+ * A tsem_context structure has a kref structure that is used to track
+ * the number of uses of a context.  This reference count is
+ * incremented each time a task is allocated in the context of a
+ * security modeling namespace and decremented when a task exists.
+ *
+ * The release of the last reference to a context causes the structure
+ * and its embedded structures to be released, thus freeing the
+ * resources that have been allocated for modeling the namespace.
  */
 
 #include "tsem.h"
