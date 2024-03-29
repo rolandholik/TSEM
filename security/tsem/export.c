@@ -1,10 +1,51 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /*
- * Copyright (C) 2023 Enjellic Systems Development, LLC
+ * Copyright (C) 2024 Enjellic Systems Development, LLC
  * Author: Dr. Greg Wettstein <greg@enjellic.com>
  *
- * Implements updates to an external modeling engine.
+ * This file implements the export of security relevant events to
+ * an external trust orchestrator.  The primary TSEM security
+ * documentation describes the types of events that are exported.
+ *
+ * The structures used to export each event are provided either by the
+ * kmem_cache implementation maintained in this file or from a
+ * magazine of structures that are maintained for events that are
+ * running in atomic context.
+ *
+ * The events are exported through the following control plane file:
+ *
+ * /sys/kernel/security/tsem/external_tma/N
+ *
+ * Where N is a filename consisting of the context identifier of the
+ * security modeling namespace that generated the event.
+ *
+ * A description of the security relevant event being exported is
+ * encoded in JSON format.  The TSEM ABI documentation has a
+ * description of the encoding that is used.
+ *
+ * For export events that describe a security event the JSON encoding
+ * of the event description is provided by the
+ * tsem_fs_show_trajectory() function.  This is the same function that
+ * is used to generate the security event descriptions for internally
+ * modeled namespaces.
+ *
+ * Processes that are generating security events in non-atomic context
+ * are put to sleep and placed on a wait queue to be scheduled back
+ * into execution by the external trust orchestrator after the event
+ * is modeled for conformance with the enforced security model.
+ *
+ * Processes running in atomic context export the event and continue
+ * to run.  A trust orchestrator is responsible for determing how to
+ * address a workload that generates a model violating event, either
+ * by shutting down the workload or generating a security alert via
+ * the trust orchestration
+ *
+ * Security modeling namespaces, including the root namespace, can
+ * also be configured for export only mode where the only purpose of
+ * the export event is to hand a description of the event to
+ * userspace.  This type of export is handled in the same manner as
+ * an event being modeled that is running in atomic context.
  */
 
 #include <linux/seq_file.h>

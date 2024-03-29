@@ -1,10 +1,28 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /*
- * Copyright (C) 2023 Enjellic Systems Development, LLC
+ * Copyright (C) 2024 Enjellic Systems Development, LLC
  * Author: Dr. Greg Wettstein <greg@enjellic.com>
  *
- * Implements the securityfs based control plane.
+ * This file implements the TSEM control plane that is surfaced
+ * through the following directory heirarchy:
+ *
+ * /sys/kernel/security/tsem
+ *
+ * The TSEM ABI documentation documents the directories and files that
+ * are implemented in this directory heirarchy.
+ *
+ * A significant portion of the functions in this file are used to
+ * generate the JSON encoding of a security event description.  This
+ * encoding is surfaced to the tsem_export_show() function through the
+ * tsem_fs_show_trajectory() function.  This latter function is also
+ * used by the trajectory and forensics pseudo files that output the
+ * characteristics of security events modeled by the internal trusted
+ * modeling agent implementation.
+ *
+ * The pseudo-files implemented are context sensitive in that they
+ * provide output describing the security modeling namespace that the
+ * process that accesses the file is running in.
  */
 
 #include <linux/seq_file.h>
