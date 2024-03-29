@@ -1,11 +1,54 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /*
- * Copyright (C) 2023 Enjellic Systems Development, LLC
+ * Copyright (C) 2024 Enjellic Systems Development, LLC
  * Author: Dr. Greg Wettstein <greg@enjellic.com>
  *
- * TSEM initialization infrastructure.
+ * This file is the primary implementation file for the tsem LSM.
+ *
+ * It implements initialization and setup functions that interpret
+ * kernel command-line arguments and prepares TSEM for operation.
+ *
+ * In addition it contains all of the TSEM specific security event
+ * handlers that are responsible for handling the LSM events that TSEM
+ * models.
+ *
+ * Each TSEM event handler calls the tsem_allocate_event() function to
+ * allocate a structure that will be used to describe the event.  The
+ * CELL union of this structure contains various structures that are
+ * used to hold these parameters.
+ *
+ * Since the event characterization parameters need to be retained for
+ * the lifetime of the tsem_event structure that is allocated.  In the
+ * case of internally modeled namespaces this lifespan is the lifetime
+ * of the security modeling namespace.  In the case of externally
+ * modeled namespaces, the lifespan is until the security event
+ * description is exported to an external trust orchestrator.
+ *
+ * In order to support this model, the event description structures
+ * are typically composed of a union over 'in' and 'out' structures.
+ * The 'in' structures are used to hold arguments to the event handler
+ * that may only be relevant for the duration of the call.  These
+ * values are translated into members of the 'out' structure that
+ * retain the values until the end of the lifetime of the tsem_event
+ * structure.
+ *
+ * Each TSEM event handler is responsible for allocating a tsem_event
+ * structure and populating the appropriate CELL structure with the
+ * input characteristics of the event.  The dispatch_event() function
+ * is called to handle the modeling of the event.  This function
+ * returns the permission value that is returned as the result of the
+ * LSM event handler.
+ *
+ * The dispatch_event() calls the tsem_event_init() function that is
+ * responsible for translating the input parameters into values that
+ * will be retained for the lifetime of the security event
+ * description.  The populated event description is then dispatched to
+ * either the tsem_model_event() or the tsem_export_event() for
+ * modeling by either the internal TMA or by a TMA associated with an
+ * external trust orchestrator.
  */
+
 #define LOCKED true
 #define NOLOCK false
 

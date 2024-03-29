@@ -1,10 +1,39 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /*
- * Copyright (C) 2023 Enjellic Systems Development, LLC
+ * Copyright (C) 2024 Enjellic Systems Development, LLC
  * Author: Dr. Greg Wettstein <greg@enjellic.com>
+
+ * This file is responsible for maintaining the security model state
+ * information for the internal trusted modeling agent implementation.
  *
- * Implements the an kernel modeling agent.
+ * The state information consists of security event descriptions that
+ * have been experienced by a security modeling namespace and the
+ * security state coefficients that they map into.  Only unique
+ * descriptions and their coefficients are maintained for maintained
+ * for each security modeling namespace.
+ *
+ * An important point to note is that the routines in this file do not
+ * implement a security model.  The mapping of security event
+ * descriptions into coefficients, in the map.c file, is the
+ * functionality that actually implements the model.  Future
+ * implementations of TSEM are anticipated to provide alternate models
+ * by providing alternative implementations of the mapping routines.
+ *
+ * The generative functions used to create the security state
+ * coefficients managed by this file are fully described in the
+ * primary TSEM documentation file.
+ *
+ * As with the event.c and export.c files this file must handle events
+ * that run in both atomic and non-atomic context.  For processes that
+ * run in non-atomic context the structures that represent a security
+ * state coefficient are provided by the kmem_cache structure
+ * implement in this file.
+ *
+ * In order to support processes that are running in atomic context a
+ * magazine of structure is maintained as well.  Allocations from this
+ * magazine are replaced with a function that runs in the context of
+ * an asynchronous workqueue.
  */
 
 #include <linux/sort.h>
