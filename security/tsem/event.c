@@ -1334,7 +1334,7 @@ static int get_move_mount(struct tsem_sb_args *args)
 static int get_quotactl(struct tsem_quota_args *args)
 {
 	int retn;
-	struct super_block *sb = args->in.sb;
+	const struct super_block *sb = args->in.sb;
 
 	memset(&args->out, '\0', sizeof(args->out));
 
