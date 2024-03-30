@@ -57,6 +57,7 @@
 #include <linux/binfmts.h>
 #include <linux/bpf.h>
 #include <linux/mount.h>
+#include <linux/security.h>
 
 #include "tsem.h"
 
@@ -68,7 +69,8 @@ static const struct lsm_id tsem_lsmid = {
 struct lsm_blob_sizes tsem_blob_sizes __ro_after_init = {
  	.lbs_task = sizeof(struct tsem_task),
  	.lbs_inode = sizeof(struct tsem_inode),
-	.lbs_ipc = sizeof(struct tsem_ipc)
+	.lbs_ipc = sizeof(struct tsem_ipc),
+	.lbs_xattr_count = 1
 };
 
 enum tsem_action_type tsem_root_actions[TSEM_EVENT_CNT] = {
@@ -561,8 +563,9 @@ static int tsem_ptrace_traceme(struct task_struct *parent)
 	return dispatch_event(ep);
 }
 
-static int tsem_capget(struct task_struct *target, kernel_cap_t *effective,
-		       kernel_cap_t *inheritable, kernel_cap_t *permitted)
+static int tsem_capget(const struct task_struct *target,
+		       kernel_cap_t *effective, kernel_cap_t *inheritable,
+		       kernel_cap_t *permitted)
 {
 	struct tsem_event *ep;
 
@@ -867,8 +870,7 @@ static int tsem_inode_alloc_security(struct inode *inode)
 
 static int tsem_inode_init_security(struct inode *inode, struct inode *dir,
 				    const struct qstr *qstr,
-				    const char **name, void **value,
-				    size_t *len)
+				    struct xattr *xattrs, int *xattr_count)
 {
 	u8 *owner = tsem_task(current)->task_id;
 	struct tsem_inode *tsip = tsem_inode(inode);
