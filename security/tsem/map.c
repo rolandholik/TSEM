@@ -20,6 +20,7 @@
  */
 
 #include <linux/magic.h>
+#include <uapi/linux/prctl.h>
 
 #include "tsem.h"
 
@@ -1480,11 +1481,10 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 		if (retn)
 			goto done;
 
-		retn = add_u64(shash, ep->CELL.task_prctl.arg2);
-		if (retn)
-			goto done;
-
-		retn = add_u64(shash, ep->CELL.task_prctl.arg3);
+		if (ep->CELL.task_prctl.option != PR_GET_PDEATHSIG)
+			retn = add_u64(shash, ep->CELL.task_prctl.arg2);
+		else
+			retn = add_u64(shash, 0);
 		if (retn)
 			goto done;
 
