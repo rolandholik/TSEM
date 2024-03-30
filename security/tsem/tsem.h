@@ -1641,7 +1641,7 @@ struct tsem_quota_args {
 	union {
 		struct {
 			struct dentry *dentry;
-			struct super_block *sb;
+			const struct super_block *sb;
 		} in;
 
 		struct {
@@ -2232,7 +2232,7 @@ extern int tsem_trust_add_event(struct tsem_event *ep);
  * various TSEM characteristics of tasks, modeling contexts and
  * inodes.
  */
-static inline struct tsem_task *tsem_task(struct task_struct *task)
+static inline struct tsem_task *tsem_task(const struct task_struct *task)
 {
 	return task->security + tsem_blob_sizes.lbs_task;
 }
