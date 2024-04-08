@@ -508,6 +508,10 @@ int tsem_ns_export_root(unsigned int magazine_size)
 		new_ctx->digestname = tsk->context->digestname;
 		memcpy(new_ctx->zero_digest, tsk->context->zero_digest,
 		       crypto_shash_digestsize(tsk->context->tfm));
+
+		mutex_init(&new_ctx->inode_mutex);
+		INIT_LIST_HEAD(&new_ctx->inode_list);
+
 		tsk->context = new_ctx;
 	}
 
