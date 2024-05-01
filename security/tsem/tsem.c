@@ -67,7 +67,7 @@ static char *default_hash_function __lsm_ro_after_init;
 
 const char * const tsem_names[TSEM_EVENT_CNT] = {
 	"undefined",
-	"bprm_committing_creds",
+	"bprm_committed_creds",
 	"task_kill",
 	"task_setpgid",
 	"task_getpgid",
@@ -787,7 +787,7 @@ static int tsem_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 	return dispatch_event(ep);
 }
 
-static void tsem_bprm_committing_creds(struct linux_binprm *bprm)
+static void tsem_bprm_committed_creds(struct linux_binprm *bprm)
 {
 	u8 task_id[HASH_MAX_DIGESTSIZE];
 
@@ -2110,7 +2110,8 @@ static struct security_hook_list tsem_hooks[] __lsm_ro_after_init = {
 	LSM_HOOK_INIT(capset, tsem_capset),
 	LSM_HOOK_INIT(capable, tsem_capable),
 
-	LSM_HOOK_INIT(bprm_committing_creds, tsem_bprm_committing_creds),
+	LSM_HOOK_INIT(bprm_committed_creds, tsem_bprm_committed_creds),
+
 	LSM_HOOK_INIT(inode_alloc_security, tsem_inode_alloc_security),
 	LSM_HOOK_INIT(inode_init_security, tsem_inode_init_security),
 	LSM_HOOK_INIT(inode_free_security, tsem_inode_free_security),
