@@ -708,7 +708,7 @@ static int tsem_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 	return model_generic_event(TSEM_TASK_PRCTL, LOCKED);
 }
 
-static void tsem_bprm_committing_creds(struct linux_binprm *bprm)
+static void tsem_bprm_committing_creds(const struct linux_binprm *bprm)
 {
 	u8 task_id[HASH_MAX_DIGESTSIZE];
 
