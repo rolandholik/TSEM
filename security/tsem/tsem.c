@@ -49,7 +49,7 @@
  * external trust orchestrator.
  */
 
-#define LOCKED true
+#define LOCK true
 #define NOLOCK false
 
 #include <linux/magic.h>
@@ -515,7 +515,7 @@ static int tsem_task_kill(struct task_struct *target,
 	if (!capable(CAP_MAC_ADMIN) && cross_model)
 		return -EPERM;
 
-	ep = tsem_event_allocate(TSEM_TASK_KILL, LOCKED);
+	ep = tsem_event_allocate(TSEM_TASK_KILL, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -535,7 +535,7 @@ static int tsem_ptrace_access_check(struct task_struct *child,
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_PTRACE_ACCESS_CHECK, LOCKED);
+	ep = tsem_event_allocate(TSEM_PTRACE_ACCESS_CHECK, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -553,7 +553,7 @@ static int tsem_ptrace_traceme(struct task_struct *parent)
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_PTRACE_TRACEME, LOCKED);
+	ep = tsem_event_allocate(TSEM_PTRACE_TRACEME, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -572,7 +572,7 @@ static int tsem_capget(const struct task_struct *target,
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_CAPGET, LOCKED);
+	ep = tsem_event_allocate(TSEM_CAPGET, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -595,7 +595,7 @@ static int tsem_capset(struct cred *new, const struct cred *old,
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_CAPSET, LOCKED);
+	ep = tsem_event_allocate(TSEM_CAPSET, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -616,7 +616,7 @@ static int tsem_capable(const struct cred *cred, struct user_namespace *ns,
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_CAPABLE, LOCKED);
+	ep = tsem_event_allocate(TSEM_CAPABLE, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -634,7 +634,7 @@ static int tsem_task_setpgid(struct task_struct *p, pid_t pgid)
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_TASK_SETPGID, LOCKED);
+	ep = tsem_event_allocate(TSEM_TASK_SETPGID, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -663,7 +663,7 @@ static int tsem_task_getpgid(struct task_struct *p)
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_TASK_GETPGID, LOCKED);
+	ep = tsem_event_allocate(TSEM_TASK_GETPGID, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -680,7 +680,7 @@ static int tsem_task_getsid(struct task_struct *p)
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_TASK_GETSID, LOCKED);
+	ep = tsem_event_allocate(TSEM_TASK_GETSID, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -697,7 +697,7 @@ static int tsem_task_setnice(struct task_struct *p, int nice)
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_TASK_SETNICE, LOCKED);
+	ep = tsem_event_allocate(TSEM_TASK_SETNICE, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -751,7 +751,7 @@ static int tsem_task_prlimit(const struct cred *cred, const struct cred *tcred,
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_TASK_PRLIMIT, LOCKED);
+	ep = tsem_event_allocate(TSEM_TASK_PRLIMIT, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -770,7 +770,7 @@ static int tsem_task_setrlimit(struct task_struct *p, unsigned int resource,
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_TASK_SETRLIMIT, LOCKED);
+	ep = tsem_event_allocate(TSEM_TASK_SETRLIMIT, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -790,7 +790,7 @@ static int tsem_task_setscheduler(struct task_struct *p)
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_TASK_SETSCHEDULER, LOCKED);
+	ep = tsem_event_allocate(TSEM_TASK_SETSCHEDULER, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -807,7 +807,7 @@ static int tsem_task_getscheduler(struct task_struct *p)
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_TASK_GETSCHEDULER, LOCKED);
+	ep = tsem_event_allocate(TSEM_TASK_GETSCHEDULER, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -825,7 +825,7 @@ static int tsem_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_TASK_PRCTL, LOCKED);
+	ep = tsem_event_allocate(TSEM_TASK_PRCTL, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -960,7 +960,7 @@ static int tsem_unix_stream_connect(struct sock *sock, struct sock *other,
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_UNIX_STREAM_CONNECT, LOCKED);
+	ep = tsem_event_allocate(TSEM_UNIX_STREAM_CONNECT, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -977,7 +977,7 @@ static int tsem_unix_may_send(struct socket *sock, struct socket *other)
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_UNIX_MAY_SEND, LOCKED);
+	ep = tsem_event_allocate(TSEM_UNIX_MAY_SEND, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -1393,7 +1393,7 @@ static int tsem_shm_associate(struct kern_ipc_perm *perm, int shmflg)
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_SHM_ASSOCIATE, LOCKED);
+	ep = tsem_event_allocate(TSEM_SHM_ASSOCIATE, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -1410,7 +1410,7 @@ static int tsem_shm_shmctl(struct kern_ipc_perm *perm, int cmd)
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_SHM_SHMCTL, LOCKED);
+	ep = tsem_event_allocate(TSEM_SHM_SHMCTL, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -1428,7 +1428,7 @@ static int tsem_shm_shmat(struct kern_ipc_perm *perm, char __user *shmaddr,
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_SHM_SHMAT, LOCKED);
+	ep = tsem_event_allocate(TSEM_SHM_SHMAT, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -1445,7 +1445,7 @@ static int tsem_sem_associate(struct kern_ipc_perm *perm, int semflg)
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_SEM_ASSOCIATE, LOCKED);
+	ep = tsem_event_allocate(TSEM_SEM_ASSOCIATE, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -1462,7 +1462,7 @@ static int tsem_sem_semctl(struct kern_ipc_perm *perm, int cmd)
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_SEM_SEMCTL, LOCKED);
+	ep = tsem_event_allocate(TSEM_SEM_SEMCTL, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -1480,7 +1480,7 @@ static int tsem_sem_semop(struct kern_ipc_perm *perm, struct sembuf *sops,
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_SEM_SEMOP, LOCKED);
+	ep = tsem_event_allocate(TSEM_SEM_SEMOP, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -1575,7 +1575,7 @@ static int tsem_msg_queue_associate(struct kern_ipc_perm *perm, int msqflg)
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_MSG_QUEUE_ASSOCIATE, LOCKED);
+	ep = tsem_event_allocate(TSEM_MSG_QUEUE_ASSOCIATE, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -1594,7 +1594,7 @@ static int tsem_msg_queue_msgsnd(struct kern_ipc_perm *perm,
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_MSG_QUEUE_MSGSND, LOCKED);
+	ep = tsem_event_allocate(TSEM_MSG_QUEUE_MSGSND, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -1611,7 +1611,7 @@ static int tsem_msg_queue_msgctl(struct kern_ipc_perm *perm, int cmd)
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_MSG_QUEUE_MSGCTL, LOCKED);
+	ep = tsem_event_allocate(TSEM_MSG_QUEUE_MSGCTL, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -1631,7 +1631,7 @@ static int tsem_msg_queue_msgrcv(struct kern_ipc_perm *perm,
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_MSG_QUEUE_MSGRCV, LOCKED);
+	ep = tsem_event_allocate(TSEM_MSG_QUEUE_MSGRCV, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -1658,7 +1658,7 @@ static int tsem_ipc_permission(struct kern_ipc_perm *ipcp, short flag)
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_IPC_PERMISSION, LOCKED);
+	ep = tsem_event_allocate(TSEM_IPC_PERMISSION, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -1699,7 +1699,7 @@ static int tsem_key_permission(key_ref_t key_ref, const struct cred *cred,
 	if (bypass_event())
 		return 0;
 
-	ep = tsem_event_allocate(TSEM_KEY_PERMISSION, LOCKED);
+	ep = tsem_event_allocate(TSEM_KEY_PERMISSION, LOCK);
 	if (!ep)
 		return -ENOMEM;
 
