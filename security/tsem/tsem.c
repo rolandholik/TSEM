@@ -67,8 +67,8 @@ static const struct lsm_id tsem_lsmid = {
 };
 
 struct lsm_blob_sizes tsem_blob_sizes __ro_after_init = {
- 	.lbs_task = sizeof(struct tsem_task),
- 	.lbs_inode = sizeof(struct tsem_inode),
+	.lbs_task = sizeof(struct tsem_task),
+	.lbs_inode = sizeof(struct tsem_inode),
 	.lbs_ipc = sizeof(struct tsem_ipc),
 	.lbs_xattr_count = 1
 };
@@ -102,9 +102,9 @@ static struct tsem_model root_model = {
 static struct tsem_context root_context;
 
 DEFINE_STATIC_KEY_TRUE(tsem_not_ready);
- 
+
 static bool tsem_available __ro_after_init;
- 
+
 static unsigned int magazine_size __ro_after_init = TSEM_ROOT_MAGAZINE_SIZE;
 
 static enum mode_type {
@@ -112,7 +112,7 @@ static enum mode_type {
 	NO_ROOT_MODELING,
 	EXPORT_ONLY
 } tsem_mode __ro_after_init;
- 
+
 static char *default_hash_function __ro_after_init;
 
 const char * const tsem_names[TSEM_EVENT_CNT] = {
