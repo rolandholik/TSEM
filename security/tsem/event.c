@@ -1445,7 +1445,7 @@ int tsem_event_init(struct tsem_event *ep)
 		retn = get_inode_killpriv(&ep->CELL.inode);
 		break;
 	case TSEM_FILE_OPEN:
-	case TSEM_BPRM_COMMITTING_CREDS:
+	case TSEM_BPRM_COMMITTED_CREDS:
 	case TSEM_FILE_IOCTL:
 	case TSEM_FILE_LOCK:
 	case TSEM_FILE_FCNTL:
@@ -1573,7 +1573,7 @@ static void free_cell(struct tsem_event *ep)
 		kfree(ep->CELL.inode.out.new_dentry.path.pathname);
 		break;
 	case TSEM_FILE_OPEN:
-	case TSEM_BPRM_COMMITTING_CREDS:
+	case TSEM_BPRM_COMMITTED_CREDS:
 	case TSEM_FILE_IOCTL:
 	case TSEM_FILE_LOCK:
 	case TSEM_FILE_FCNTL:
