@@ -62,6 +62,11 @@
  * tsem_names array and the array that defines the action that is to
  * be taken in response to an event that generates a permissions
  * violation.
+ *
+ * NOTE:
+ * If additions or deletions are made to these enumerated constants
+ * there needs to be coordinated changes made to the tsem_names array
+ * in the tsem.c file.
  */
 enum tsem_event_type {
 	TSEM_BPRM_COMMITTING_CREDS = 1,
