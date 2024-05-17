@@ -1190,7 +1190,7 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 		break;
 
 	case TSEM_FILE_OPEN:
-	case TSEM_BPRM_COMMITTING_CREDS:
+	case TSEM_BPRM_COMMITTED_CREDS:
 		retn = add_file(shash, &ep->CELL.file);
 		if (retn)
 			goto done;
@@ -1741,7 +1741,7 @@ int tsem_map_task(struct file *file, u8 *task_id)
 	u8 null_taskid[HASH_MAX_DIGESTSIZE];
 	struct tsem_event *ep;
 
-	ep = tsem_event_allocate(TSEM_BPRM_COMMITTING_CREDS, false);
+	ep = tsem_event_allocate(TSEM_BPRM_COMMITTED_CREDS, false);
 	if (!ep)
 		return -ENOMEM;
 

@@ -69,7 +69,7 @@
  * in the tsem.c file.
  */
 enum tsem_event_type {
-	TSEM_BPRM_COMMITTING_CREDS = 1,
+	TSEM_BPRM_COMMITTED_CREDS = 1,
 	TSEM_TASK_KILL,
 	TSEM_TASK_SETPGID,
 	TSEM_TASK_GETPGID,
