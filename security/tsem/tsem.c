@@ -115,95 +115,103 @@ static enum mode_type {
 
 static char *default_hash_function __ro_after_init;
 
+/*
+ * NOTE:
+ * The tsem_event_type enumerations are used to select the
+ * member of the tsem_names array that is to be used.  If the members
+ * of this array change position, or there are additions or deletions
+ * to this array, there needs to be coordinated changes made to the
+ * tsem_event_type enumeration in the tsem.h file.
+ */
 const char * const tsem_names[TSEM_EVENT_CNT] = {
 	"undefined",
-	"bprm_committed_creds",
-	"task_kill",
-	"task_setpgid",
-	"task_getpgid",
-	"task_getsid",
-	"task_setnice",
-	"task_setioprio",
-	"task_getioprio",
-	"task_prlimit",
-	"task_setrlimit",
-	"task_setscheduler",
-	"task_getscheduler",
-	"task_prctl",
-	"file_open",
-	"mmap_file",
-	"file_ioctl",
-	"file_lock",
-	"file_fcntl",
-	"file_receive",
-	"unix_stream_connect",
-	"unix_may_send",
-	"socket_create",
-	"socket_connect",
-	"socket_bind",
-	"socket_accept",
-	"socket_listen",
-	"socket_socketpair",
-	"socket_sendmsg",
-	"socket_recvmsg",
-	"socket_getsockname",
-	"socket_getpeername",
-	"socket_setsockopt",
-	"socket_shutdown",
-	"ptrace_traceme",
-	"kernel_module_request",
-	"kernel_load_data",
-	"kernel_read_file",
-	"sb_mount",
-	"sb_umount",
-	"sb_remount",
-	"sb_pivotroot",
-	"sb_statfs",
-	"move_mount",
-	"shm_associate",
-	"shm_shmctl",
-	"shm_shmat",
-	"sem_associate",
-	"sem_semctl",
-	"sem_semop",
-	"syslog",
-	"settime",
-	"quotactl",
-	"quota_on",
-	"msg_queue_associate",
-	"msg_queue_msgctl",
-	"msg_queue_msgsnd",
-	"msg_queue_msgrcv",
-	"ipc_permission",
-	"key_alloc",
-	"key_permission",
-	"netlink_send",
-	"inode_create",
-	"inode_link",
-	"inode_unlink",
-	"inode_symlink",
-	"inode_mkdir",
-	"inode_rmdir",
-	"inode_mknod",
-	"inode_rename",
-	"inode_setattr",
-	"inode_getattr",
-	"inode_setxattr",
-	"inode_getxattr",
-	"inode_listxattr",
-	"inode_removexattr",
-	"inode_killpriv",
-	"tun_dev_create",
-	"tun_dev_attach_queue",
-	"tun_dev_attach",
-	"tun_dev_open",
-	"bpf",
-	"bpf_map",
-	"bpf_prog",
-	"ptrace_access_check",
-	"capable",
-	"capget",
-	"capset"
+	"bprm_committed_creds",		/* TSEM_BPRM_COMMITTED_CREDS */
+	"task_kill",			/* TSEM_TASK_KILL */
+	"task_setpgid",			/* TSEM_TASK_SETPGID */
+	"task_getpgid",			/* TSEM_TASK_GETPGID */
+	"task_getsid",			/* TSEM_TASK_GETSID */
+	"task_setnice",			/* TSEM_TASK_SETNICE */
+	"task_setioprio",		/* TSEM_TASK_SETIOPRIO */
+	"task_getioprio",		/* TSEM_TASK_GETIOPRIO */
+	"task_prlimit",			/* TSEM_TASK_PRLIMIT */
+	"task_setrlimit",		/* TSEM_TASK_SETRLIMIT */
+	"task_setscheduler",		/* TSEM_TASK_SETSCHEDULER */
+	"task_getscheduler",		/* TSEM_TASK_GETSCHEDULER */
+	"task_prctl",			/* TSEM_TASK_PRCTL */
+	"file_open",			/* TSEM_FILE_OPEN */
+	"mmap_file",			/* TSEM_MMAP_FILE */
+	"file_ioctl",			/* TSEM_FILE_IOCTL */
+	"file_lock",			/* TSEM_FILE_LOCK */
+	"file_fcntl",			/* TSEM_FILE_FCNTL */
+	"file_receive",			/* TSEM_FILE_RECEIVE */
+	"unix_stream_connect",		/* TSEM_UNIX_STREAM_CONNECT */
+	"unix_may_send",		/* TSEM_UNIX_MAY_SEND */
+	"socket_create",		/* TSEM_SOCKET_CREATE */
+	"socket_connect",		/* TSEM_SOCKET_CONNECT */
+	"socket_bind",			/* TSEM_SOCKET_BIND */
+	"socket_accept",		/* TSEM_SOCKET_ACCEPT */
+	"socket_listen",		/* TSEM_SOCKET_LISTEN */
+	"socket_socketpair",		/* TSEM_SOCKET_SOCKETPAIR */
+	"socket_sendmsg",		/* TSEM_SOCKET_SENDMSG */
+	"socket_recvmsg",		/* TSEM_SOCKET_RECVMSG */
+	"socket_getsockname",		/* TSEM_SOCKET_GETSOCKNAME */
+	"socket_getpeername",		/* TSEM_SOCKET_GETPEERNAME */
+	"socket_setsockopt",		/* TSEM_SOCKET_SETSOCKOPT */
+	"socket_shutdown",		/* TSEM_SOCKET_SHUTDOWN */
+	"ptrace_traceme",		/* TSEM_PTRACE_TRACEME */
+	"kernel_module_request",	/* TSEM_KERNEL_MODULE_REQUEST */
+	"kernel_load_data",		/* TSEM_KERNEL_LOAD_DATA */
+	"kernel_read_file",		/* TSEM_KERNEL_READ_FILE */
+	"sb_mount",			/* TSEM_SB_MOUNT */
+	"sb_umount",			/* TSEM_SB_UMOUNT */
+	"sb_remount",			/* TSEM_SB_REMOUNT */
+	"sb_pivotroot",			/* TSEM_SB_PIVOTROOT */
+	"sb_statfs",			/* TSEM_SB_STATFS */
+	"move_mount",			/* TSEM_MOVE_MOUNT */
+	"shm_associate",		/* TSEM_SHM_ASSOCIATE */
+	"shm_shmctl",			/* TSEM_SHM_SHMCTL */
+	"shm_shmat",			/* TSEM_SHM_SHMAT */
+	"sem_associate",		/* TSEM_SEM_ASSOCIATE */
+	"sem_semctl",			/* TSEM_SEM_SEMCTL */
+	"sem_semop",			/* TSEM_SEM_SEMOP */
+	"syslog",			/* TSEM_SYSLOG */
+	"settime",			/* TSEM_SETTIME */
+	"quotactl",			/* TSEM_QUOTACTL */
+	"quota_on",			/* TSEM_QUOTA_ON */
+	"msg_queue_associate",		/* TSEM_MSG_QUEUE_ASSOCIATE */
+	"msg_queue_msgctl",		/* TSEM_MSG_QUEUE_MSGCTL */
+	"msg_queue_msgsnd",		/* TSEM_MSG_QUEUE_MSGSND */
+	"msg_queue_msgrcv",		/* TSEM_MSG_QUEUE_MSGRCV */
+	"ipc_permission",		/* TSEM_IPC_PERMISSION */
+	"key_alloc",			/* TSEM_KEY_ALLOC */
+	"key_permission",		/* TSEM_KEY_PERMISSION */
+	"netlink_send",			/* TSEM_NETLINK_SEND */
+	"inode_create",			/* TSEM_INODE_CREATE */
+	"inode_link",			/* TSEM_INODE_LINK */
+	"inode_unlink",			/* TSEM_INODE_UNLINK */
+	"inode_symlink",		/* TSEM_INODE_SYMLINK */
+	"inode_mkdir",			/* TSEM_INODE_MKDIR */
+	"inode_rmdir",			/* TSEM_INODE_RMDIR */
+	"inode_mknod",			/* TSEM_INODE_MKNOD */
+	"inode_rename",			/* TSEM_INODE_RENAME */
+	"inode_setattr",		/* TSEM_INODE_SETATTR */
+	"inode_getattr",		/* TSEM_INODE_GETATTR */
+	"inode_setxattr",		/* TSEM_INODE_SETXATTR */
+	"inode_getxattr",		/* TSEM_INODE_GETXATTR */
+	"inode_listxattr",		/* TSEM_INODE_LISTXATTR */
+	"inode_removexattr",		/* TSEM_INODE_REMOVEXATTR */
+	"inode_killpriv",		/* TSEM_INODE_KILLPRIV */
+	"tun_dev_create",		/* TSEM_TUN_DEV_CREATE */
+	"tun_dev_attach_queue",		/* TSEM_TUN_DEV_ATTACH_QUEUE */
+	"tun_dev_attach",		/* TSEM_TUN_DEV_ATTACH */
+	"tun_dev_open",			/* TSEM_TUN_DEV_OPEN */
+	"bpf",				/* TSEM_BPF */
+	"bpf_map",			/* TSEM_BPF_MAP */
+	"bpf_prog",			/* TSEM_BPF_PROG */
+	"ptrace_access_check",		/* TSEM_PTRACE_ACCESS_CHECK */
+	"capable",			/* TSEM_CAPABLE */
+	"capget",			/* TSEM_CAPGET */
+	"capset"			/* TSEM_CAPSET */
 };
 
 static const unsigned long pseudo_filesystems[] = {
