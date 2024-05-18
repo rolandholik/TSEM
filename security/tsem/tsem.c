@@ -500,9 +500,8 @@ static void tsem_task_free(struct task_struct *task)
 {
 	struct tsem_context *ctx = tsem_context(task);
 
-	if (!ctx->id)
-		return;
-	tsem_ns_put(ctx);
+	if (ctx->id)
+		tsem_ns_put(ctx);
 }
 
 static int tsem_task_kill(struct task_struct *target,
