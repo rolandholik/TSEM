@@ -110,10 +110,18 @@ static unsigned int magazine_size __ro_after_init = TSEM_ROOT_MAGAZINE_SIZE;
 static enum mode_type {
 	FULL_MODELING,
 	NO_ROOT_MODELING,
-	EXPORT_ONLY
+	ROOT_EXPORT_ONLY
 } tsem_mode __ro_after_init;
 
 static char *default_hash_function __ro_after_init;
+
+static const struct {
+	char *key;
+	enum mode_type mode;
+} mode_arguments[] __ro_after_init = {
+	{"no_root_modeling", NO_ROOT_MODELING},
+	{"root_export_only", ROOT_EXPORT_ONLY}
+};
 
 /*
  * NOTE:
@@ -246,21 +254,19 @@ static int __init set_magazine_size(char *magazine_value)
 }
 __setup("tsem_cache=", set_magazine_size);
 
-static int __init set_modeling_mode(char *mode_value)
+static int __init set_modeling_mode(char *mode_argument)
 {
-	unsigned long mode = 0;
+	unsigned int lp;
 
-	if (kstrtoul(mode_value, 0, &mode)) {
-		pr_warn("tsem: Failed to parse modeling mode.\n");
-		return 1;
+	for (lp = 0; lp < ARRAY_SIZE(mode_arguments); ++lp) {
+		if (!strcmp(mode_argument, mode_arguments[lp].key)) {
+			tsem_mode = mode_arguments[lp].mode;
+			return 1;
+		}
 	}
 
-	if (mode == 1)
-		tsem_mode = NO_ROOT_MODELING;
-	else if (mode == 2)
-		tsem_mode = EXPORT_ONLY;
-	else
-		pr_warn("tsem: Unknown mode specified.\n");
+	pr_warn("tsem: Unknown tsem_mode %s specified, using full modeling.\n",
+		mode_argument);
 	return 1;
 }
 __setup("tsem_mode=", set_modeling_mode);
@@ -2334,7 +2340,7 @@ static int __init set_ready(void)
 	if (retn)
 		goto done;
 
-	if (tsem_mode == EXPORT_ONLY) {
+	if (tsem_mode == ROOT_EXPORT_ONLY) {
 		retn = tsem_ns_export_root(magazine_size);
 		if (retn)
 			goto done;
@@ -2401,16 +2407,16 @@ static int __init tsem_init(void)
 
 	switch (tsem_mode) {
 	case FULL_MODELING:
-		msg = "full";
+		msg = "full modeling";
 		break;
 	case NO_ROOT_MODELING:
-		msg = "namespace only";
+		msg = "namespace only modeling";
 		break;
-	case EXPORT_ONLY:
-		msg = "export";
+	case ROOT_EXPORT_ONLY:
+		msg = "root export only";
 		break;
 	}
-	pr_info("tsem: Initialized %s modeling.\n", msg);
+	pr_info("tsem: Initialized %s.\n", msg);
 
 	tsem_available = true;
 	tsk->trust_status = TSEM_TASK_TRUSTED;

@@ -85,7 +85,7 @@ Integration/Continous Development (CI/CD) workflow, modeling can be
 restricted to subordinate security modeling namespaces by booting a
 kernel with the following kernel command-line option:
 
-tsem_mode=1
+tsem_mode=no_root_modeling
 
 This disables modeling of the root security modeling namespace and
 only implements modeling for subordinate security namespaces.
@@ -1529,7 +1529,7 @@ surveillance systems.
 The root security modeling namespace can be placed in 'export only'
 mode through the following kernel command-line option:
 
-tsem_mode=2
+tsem_mode=root_export_only
 
 The supplied quixote-export utility operates in a manner similar to
 the trust orchestrators for externally modeled namespaces.
