@@ -907,9 +907,6 @@ static int tsem_inode_init_security(struct inode *inode, struct inode *dir,
 	}
 	mutex_unlock(&tsem_inode(dir)->create_mutex);
 
-	if (!retn && S_ISREG(inode->i_mode))
-		WARN_ONCE(true, "Cannot find inode ownership information.");
-
 	return -EOPNOTSUPP;
 }
 
