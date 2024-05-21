@@ -335,6 +335,8 @@ static struct crypto_shash *configure_digest(const char *digest,
  * @key:    A pointer to a null-terminated buffer containing the key
  *	    that will be used to authenticate the TMA's ability to set
  *	    the trust status of a process.
+ * @ops:    A pointer to the security namespace definitions and
+ *	    operations for the namespace being created.
  *
  * This function is used to create either an internally or externally
  * modeled TSEM namespace.  The type of the namespace to be created
@@ -351,7 +353,7 @@ static struct crypto_shash *configure_digest(const char *digest,
  */
 int tsem_ns_create(const enum tsem_control_type type, const char *digest,
 		   const enum tsem_ns_reference ns, const char *key,
-		   unsigned int cache_size)
+		   unsigned int cache_size, const struct tsem_context_ops *ops)
 {
 	u8 zero_digest[HASH_MAX_DIGESTSIZE];
 	char *use_digest;
@@ -422,6 +424,7 @@ int tsem_ns_create(const enum tsem_control_type type, const char *digest,
 
 	new_ctx->id = new_id;
 	new_ctx->tfm = tfm;
+	new_ctx->ops = ops;
 	new_ctx->digestname = use_digest;
 	memcpy(new_ctx->zero_digest, zero_digest,
 	       crypto_shash_digestsize(tfm));

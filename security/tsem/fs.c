@@ -272,7 +272,8 @@ static int config_namespace(enum tsem_control_type type, const char *arg)
 	if (!arg) {
 		if (type == TSEM_CONTROL_EXTERNAL)
 			return retn;
-		return tsem_ns_create(type, digest, ns_ref, key, cache_size);
+		return tsem_ns_create(type, digest, ns_ref, key, cache_size,
+				      &tsem_model0_ops);
 	}
 
 	argv = argv_split(GFP_KERNEL, arg, &argc);
@@ -323,7 +324,8 @@ static int config_namespace(enum tsem_control_type type, const char *arg)
 	if (type == TSEM_CONTROL_EXTERNAL && !key)
 		goto done;
 
-	retn = tsem_ns_create(type, digest, ns_ref, key, cache_size);
+	retn = tsem_ns_create(type, digest, ns_ref, key, cache_size,
+			      &tsem_model0_ops);
 
  done:
 	argv_free(argv);

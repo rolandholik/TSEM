@@ -595,8 +595,23 @@ struct tsem_context {
 	struct tsem_work *ws;
 	struct tsem_event **magazine;
 
+	const struct tsem_context_ops *ops;
 	struct tsem_model *model;
 	struct tsem_external *external;
+};
+
+/**
+ * struct tsem_context_ops - Security modeling namespace operations.
+ * @bypass: A pointer to an array of booleans of size TSEM_EVENT_CNT
+ *	    that specify whether or not a security event handler should
+ *	    be bypassed.
+ *
+ * This structure is used to define the operations that are available
+ * for a security modeling namespace.  It provides the mechanism for
+ * customizing the models that can be implemented by a namespace.
+ */
+struct tsem_context_ops {
+	const bool *bypasses;
 };
 
 /**
@@ -2154,7 +2169,7 @@ struct tsem_inode_digest {
 };
 
 /*
- * The following three variables are the only globally visible
+ * The following four variables are the only globally visible
  * variables used in the TSEM implementation.
  *
  * The tsem_blob_sizes variable is used by the LSM infrastructure to
@@ -2176,6 +2191,7 @@ struct tsem_inode_digest {
 extern struct lsm_blob_sizes tsem_blob_sizes;
 extern const char * const tsem_names[TSEM_EVENT_CNT];
 extern enum tsem_action_type tsem_root_actions[TSEM_EVENT_CNT];
+extern const struct tsem_context_ops tsem_model0_ops;
 
 /*
  * The following section of the file contains the definitions for the
@@ -2204,7 +2220,8 @@ extern void tsem_ns_put(struct tsem_context *ctx);
 extern int tsem_ns_event_key(u8 *task_key, const char *keystr, u8 *key);
 extern int tsem_ns_create(const enum tsem_control_type type,
 			  const char *digest, const enum tsem_ns_reference ns,
-			  const char *key, const unsigned int cache_size);
+			  const char *key, const unsigned int cache_size,
+			  const struct tsem_context_ops *ops);
 extern int tsem_ns_export_root(unsigned int magazine_size);
 
 extern int tsem_export_show(struct seq_file *m, void *v);

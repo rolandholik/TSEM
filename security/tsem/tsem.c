@@ -279,8 +279,10 @@ static int __init set_default_hash_function(char *hash_function)
 }
 __setup("tsem_digest=", set_default_hash_function);
 
-static bool bypass_event(void)
+static bool bypass_event(const enum tsem_event_type event)
 {
+	if (tsem_context(current)->ops->bypasses[event])
+		return true;
 	if (tsem_mode == NO_ROOT_MODELING && !tsem_context(current)->id)
 		return true;
 	return false;
@@ -343,7 +345,7 @@ static int tsem_file_open(struct file *file)
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_FILE_OPEN))
 		return 0;
 	if (unlikely(tsem_inode(inode)->status == TSEM_INODE_CONTROL_PLANE)) {
 		if (capable(CAP_MAC_ADMIN))
@@ -375,7 +377,7 @@ static int tsem_mmap_file(struct file *file, unsigned long prot,
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_MMAP_FILE))
 		return 0;
 
 	if (!file && !(prot & PROT_EXEC))
@@ -405,7 +407,7 @@ static int tsem_file_ioctl(struct file *file, unsigned int cmd,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_FILE_IOCTL))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_FILE_IOCTL, NOLOCK);
@@ -423,7 +425,7 @@ static int tsem_file_lock(struct file *file, unsigned int cmd)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_FILE_LOCK))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_FILE_LOCK, NOLOCK);
@@ -444,7 +446,7 @@ static int tsem_file_fcntl(struct file *file, unsigned int cmd,
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_FILE_FCNTL))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_FILE_FCNTL, NOLOCK);
@@ -462,7 +464,7 @@ static int tsem_file_receive(struct file *file)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_FILE_RECEIVE))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_FILE_RECEIVE, NOLOCK);
@@ -513,7 +515,7 @@ static int tsem_task_kill(struct task_struct *target,
 	struct tsem_context *src_ctx = tsem_context(current);
 	struct tsem_context *tgt_ctx = tsem_context(target);
 
-	if (bypass_event())
+	if (bypass_event(TSEM_TASK_KILL))
 		return 0;
 
 	cross_model = src_ctx->id != tgt_ctx->id;
@@ -545,7 +547,7 @@ static int tsem_ptrace_access_check(struct task_struct *child,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_PTRACE_ACCESS_CHECK))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_PTRACE_ACCESS_CHECK, LOCK);
@@ -563,7 +565,7 @@ static int tsem_ptrace_traceme(struct task_struct *parent)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_PTRACE_TRACEME))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_PTRACE_TRACEME, LOCK);
@@ -582,7 +584,7 @@ static int tsem_capget(const struct task_struct *target,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_CAPGET))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_CAPGET, LOCK);
@@ -605,7 +607,7 @@ static int tsem_capset(struct cred *new, const struct cred *old,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_CAPSET))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_CAPSET, LOCK);
@@ -626,7 +628,7 @@ static int tsem_capable(const struct cred *cred, struct user_namespace *ns,
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_CAPABLE))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_CAPABLE, LOCK);
@@ -644,7 +646,7 @@ static int tsem_task_setpgid(struct task_struct *p, pid_t pgid)
 	struct tsem_event *ep;
 	struct task_struct *src;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_TASK_SETPGID))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_TASK_SETPGID, LOCK);
@@ -673,7 +675,7 @@ static int tsem_task_getpgid(struct task_struct *p)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_TASK_GETPGID))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_TASK_GETPGID, LOCK);
@@ -690,7 +692,7 @@ static int tsem_task_getsid(struct task_struct *p)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_TASK_GETSID))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_TASK_GETSID, LOCK);
@@ -707,7 +709,7 @@ static int tsem_task_setnice(struct task_struct *p, int nice)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_TASK_SETNICE))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_TASK_SETNICE, LOCK);
@@ -725,7 +727,7 @@ static int tsem_task_setioprio(struct task_struct *p, int ioprio)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_TASK_SETIOPRIO))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_TASK_SETIOPRIO, NOLOCK);
@@ -743,7 +745,7 @@ static int tsem_task_getioprio(struct task_struct *p)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_TASK_GETIOPRIO))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_TASK_GETIOPRIO, NOLOCK);
@@ -761,7 +763,7 @@ static int tsem_task_prlimit(const struct cred *cred, const struct cred *tcred,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_TASK_PRLIMIT))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_TASK_PRLIMIT, LOCK);
@@ -780,7 +782,7 @@ static int tsem_task_setrlimit(struct task_struct *p, unsigned int resource,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_TASK_SETRLIMIT))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_TASK_SETRLIMIT, LOCK);
@@ -800,7 +802,7 @@ static int tsem_task_setscheduler(struct task_struct *p)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_TASK_SETSCHEDULER))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_TASK_SETSCHEDULER, LOCK);
@@ -817,7 +819,7 @@ static int tsem_task_getscheduler(struct task_struct *p)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_TASK_GETSCHEDULER))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_TASK_GETSCHEDULER, LOCK);
@@ -835,7 +837,7 @@ static int tsem_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_TASK_PRCTL))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_TASK_PRCTL, LOCK);
@@ -967,7 +969,7 @@ static int tsem_unix_stream_connect(struct sock *sock, struct sock *other,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_UNIX_STREAM_CONNECT))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_UNIX_STREAM_CONNECT, LOCK);
@@ -984,7 +986,7 @@ static int tsem_unix_may_send(struct socket *sock, struct socket *other)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_UNIX_MAY_SEND))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_UNIX_MAY_SEND, LOCK);
@@ -1015,7 +1017,7 @@ static int tsem_socket_create(int family, int type, int protocol, int kern)
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_SOCKET_CREATE))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SOCKET_CREATE, NOLOCK);
@@ -1035,7 +1037,7 @@ static int tsem_socket_connect(struct socket *sock, struct sockaddr *addr,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SOCKET_CONNECT))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SOCKET_CONNECT, NOLOCK);
@@ -1055,7 +1057,7 @@ static int tsem_socket_bind(struct socket *sock, struct sockaddr *addr,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SOCKET_BIND))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SOCKET_BIND, NOLOCK);
@@ -1073,7 +1075,7 @@ static int tsem_socket_accept(struct socket *sock, struct socket *newsock)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SOCKET_ACCEPT))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SOCKET_ACCEPT, NOLOCK);
@@ -1091,7 +1093,7 @@ static int tsem_socket_listen(struct socket *sock, int backlog)
 	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SOCKET_LISTEN))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SOCKET_LISTEN, NOLOCK);
@@ -1109,7 +1111,7 @@ static int tsem_socket_socketpair(struct socket *socka, struct socket *sockb)
 	struct sock *ska = socka->sk, *skb = sockb->sk;
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SOCKET_SOCKETPAIR))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SOCKET_SOCKETPAIR, NOLOCK);
@@ -1128,7 +1130,7 @@ static int tsem_socket_sendmsg(struct socket *sock, struct msghdr *msgmsg,
 	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SOCKET_SENDMSG))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SOCKET_SENDMSG, NOLOCK);
@@ -1147,7 +1149,7 @@ static int tsem_socket_recvmsg(struct socket *sock, struct msghdr *msgmsg,
 	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SOCKET_RECVMSG))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SOCKET_RECVMSG, NOLOCK);
@@ -1166,7 +1168,7 @@ static int tsem_socket_getsockname(struct socket *sock)
 	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SOCKET_GETSOCKNAME))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SOCKET_GETSOCKNAME, NOLOCK);
@@ -1183,7 +1185,7 @@ static int tsem_socket_getpeername(struct socket *sock)
 	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SOCKET_GETPEERNAME))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SOCKET_GETPEERNAME, NOLOCK);
@@ -1200,7 +1202,7 @@ static int tsem_socket_setsockopt(struct socket *sock, int level, int optname)
 	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SOCKET_SETSOCKOPT))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SOCKET_SETSOCKOPT, NOLOCK);
@@ -1219,7 +1221,7 @@ static int tsem_socket_shutdown(struct socket *sock, int how)
 	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SOCKET_SHUTDOWN))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SOCKET_SHUTDOWN, NOLOCK);
@@ -1238,7 +1240,7 @@ static int tsem_kernel_module_request(char *kmod_name)
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_KERNEL_MODULE_REQUEST))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_KERNEL_MODULE_REQUEST, NOLOCK);
@@ -1254,7 +1256,7 @@ static int tsem_kernel_load_data(enum kernel_load_data_id id, bool contents)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_KERNEL_LOAD_DATA))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_KERNEL_LOAD_DATA, NOLOCK);
@@ -1273,7 +1275,7 @@ static int tsem_kernel_read_file(struct file *file,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_KERNEL_READ_FILE))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_KERNEL_READ_FILE, NOLOCK);
@@ -1294,7 +1296,7 @@ static int tsem_sb_mount(const char *dev_name, const struct path *path,
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_SB_MOUNT))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SB_MOUNT, NOLOCK);
@@ -1313,7 +1315,7 @@ static	int tsem_sb_umount(struct vfsmount *mnt, int flags)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SB_UMOUNT))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SB_UMOUNT, NOLOCK);
@@ -1332,7 +1334,7 @@ static int tsem_sb_remount(struct super_block *sb, void *mnt_opts)
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_SB_REMOUNT))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SB_REMOUNT, NOLOCK);
@@ -1349,7 +1351,7 @@ static int tsem_sb_pivotroot(const struct path *old_path,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SB_PIVOTROOT))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SB_PIVOTROOT, NOLOCK);
@@ -1366,7 +1368,7 @@ static int tsem_sb_statfs(struct dentry *dentry)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SB_STATFS))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SB_STATFS, NOLOCK);
@@ -1383,7 +1385,7 @@ static int tsem_move_mount(const struct path *from_path,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_MOVE_MOUNT))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_MOVE_MOUNT, NOLOCK);
@@ -1400,7 +1402,7 @@ static int tsem_shm_associate(struct kern_ipc_perm *perm, int shmflg)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SHM_ASSOCIATE))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SHM_ASSOCIATE, LOCK);
@@ -1417,7 +1419,7 @@ static int tsem_shm_shmctl(struct kern_ipc_perm *perm, int cmd)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SHM_SHMCTL))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SHM_SHMCTL, LOCK);
@@ -1435,7 +1437,7 @@ static int tsem_shm_shmat(struct kern_ipc_perm *perm, char __user *shmaddr,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SHM_SHMAT))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SHM_SHMAT, LOCK);
@@ -1452,7 +1454,7 @@ static int tsem_sem_associate(struct kern_ipc_perm *perm, int semflg)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SEM_ASSOCIATE))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SEM_ASSOCIATE, LOCK);
@@ -1469,7 +1471,7 @@ static int tsem_sem_semctl(struct kern_ipc_perm *perm, int cmd)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SEM_SEMCTL))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SEM_SEMCTL, LOCK);
@@ -1487,7 +1489,7 @@ static int tsem_sem_semop(struct kern_ipc_perm *perm, struct sembuf *sops,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SEM_SEMOP))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SEM_SEMOP, LOCK);
@@ -1505,7 +1507,7 @@ static int tsem_syslog(int type)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SYSLOG))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SYSLOG, NOLOCK);
@@ -1521,7 +1523,7 @@ static int tsem_settime(const struct timespec64 *ts, const struct timezone *tz)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_SETTIME))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_SETTIME, NOLOCK);
@@ -1547,7 +1549,7 @@ static int tsem_quotactl(int cmds, int type, int id,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_QUOTACTL))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_QUOTACTL, NOLOCK);
@@ -1566,7 +1568,7 @@ static int tsem_quota_on(struct dentry *dentry)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_QUOTA_ON))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_QUOTA_ON, NOLOCK);
@@ -1582,7 +1584,7 @@ static int tsem_msg_queue_associate(struct kern_ipc_perm *perm, int msqflg)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_MSG_QUEUE_ASSOCIATE))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_MSG_QUEUE_ASSOCIATE, LOCK);
@@ -1601,7 +1603,7 @@ static int tsem_msg_queue_msgsnd(struct kern_ipc_perm *perm,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_MSG_QUEUE_MSGSND))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_MSG_QUEUE_MSGSND, LOCK);
@@ -1618,7 +1620,7 @@ static int tsem_msg_queue_msgctl(struct kern_ipc_perm *perm, int cmd)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_MSG_QUEUE_MSGCTL))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_MSG_QUEUE_MSGCTL, LOCK);
@@ -1638,7 +1640,7 @@ static int tsem_msg_queue_msgrcv(struct kern_ipc_perm *perm,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_MSG_QUEUE_MSGRCV))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_MSG_QUEUE_MSGRCV, LOCK);
@@ -1665,7 +1667,7 @@ static int tsem_ipc_permission(struct kern_ipc_perm *ipcp, short flag)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_IPC_PERMISSION))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_IPC_PERMISSION, LOCK);
@@ -1686,7 +1688,7 @@ static int tsem_key_alloc(struct key *key, const struct cred *cred,
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_KEY_ALLOC))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_KEY_ALLOC, NOLOCK);
@@ -1706,7 +1708,7 @@ static int tsem_key_permission(key_ref_t key_ref, const struct cred *cred,
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_KEY_PERMISSION))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_KEY_PERMISSION, LOCK);
@@ -1725,7 +1727,7 @@ static int tsem_netlink_send(struct sock *sk, struct sk_buff *skb)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_NETLINK_SEND))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_NETLINK_SEND, NOLOCK);
@@ -1745,7 +1747,7 @@ static int tsem_inode_create(struct inode *dir, struct dentry *dentry,
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_INODE_CREATE))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_CREATE, NOLOCK);
@@ -1766,7 +1768,7 @@ static int tsem_inode_link(struct dentry *old_dentry, struct inode *dir,
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_INODE_LINK))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_LINK, NOLOCK);
@@ -1787,7 +1789,7 @@ static int tsem_inode_unlink(struct inode *dir, struct dentry *dentry)
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_INODE_UNLINK))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_UNLINK, NOLOCK);
@@ -1808,7 +1810,7 @@ static int tsem_inode_symlink(struct inode *dir, struct dentry *dentry,
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_INODE_SYMLINK))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_SYMLINK, NOLOCK);
@@ -1829,7 +1831,7 @@ static int tsem_inode_mkdir(struct inode *dir, struct dentry *dentry,
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_INODE_MKDIR))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_MKDIR, NOLOCK);
@@ -1847,7 +1849,7 @@ static int tsem_inode_rmdir(struct inode *dir, struct dentry *dentry)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_INODE_RMDIR))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_RMDIR, NOLOCK);
@@ -1866,7 +1868,7 @@ static int tsem_inode_rename(struct inode *old_dir, struct dentry *old_dentry,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_INODE_RENAME))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_RENAME, NOLOCK);
@@ -1888,7 +1890,7 @@ static int tsem_inode_mknod(struct inode *dir, struct dentry *dentry,
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_INODE_MKNOD))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_MKNOD, NOLOCK);
@@ -1910,7 +1912,7 @@ static int tsem_inode_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_INODE_SETATTR))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_SETATTR, NOLOCK);
@@ -1929,7 +1931,7 @@ static int tsem_inode_getattr(const struct path *path)
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_INODE_GETATTR))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_GETATTR, NOLOCK);
@@ -1947,7 +1949,7 @@ static int tsem_inode_setxattr(struct mnt_idmap *idmap,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_INODE_SETXATTR))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_SETXATTR, NOLOCK);
@@ -1969,7 +1971,7 @@ static int tsem_inode_getxattr(struct dentry *dentry, const char *name)
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_INODE_GETXATTR))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_GETXATTR, NOLOCK);
@@ -1988,7 +1990,7 @@ static int tsem_inode_listxattr(struct dentry *dentry)
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return 0;
-	if (bypass_event())
+	if (bypass_event(TSEM_INODE_LISTXATTR))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_LISTXATTR, NOLOCK);
@@ -2005,7 +2007,7 @@ static int tsem_inode_removexattr(struct mnt_idmap *idmap,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_INODE_REMOVEXATTR))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_REMOVEXATTR, NOLOCK);
@@ -2023,7 +2025,7 @@ static int tsem_inode_killpriv(struct mnt_idmap *idmap,
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_INODE_KILLPRIV))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_INODE_KILLPRIV, NOLOCK);
@@ -2039,7 +2041,7 @@ static int tsem_tun_dev_create(void)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_TUN_DEV_CREATE))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_TUN_DEV_CREATE, NOLOCK);
@@ -2054,7 +2056,7 @@ static int tsem_tun_dev_attach_queue(void *security)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_TUN_DEV_ATTACH_QUEUE))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_TUN_DEV_ATTACH_QUEUE, NOLOCK);
@@ -2069,7 +2071,7 @@ static int tsem_tun_dev_attach(struct sock *sk, void *security)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_TUN_DEV_ATTACH))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_TUN_DEV_ATTACH, NOLOCK);
@@ -2085,7 +2087,7 @@ static int tsem_tun_dev_open(void *security)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_TUN_DEV_OPEN))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_TUN_DEV_OPEN, NOLOCK);
@@ -2101,7 +2103,7 @@ static int tsem_bpf(int cmd, union bpf_attr *attr, unsigned int size)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_BPF))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_BPF, NOLOCK);
@@ -2118,7 +2120,7 @@ static int tsem_bpf_map(struct bpf_map *map, fmode_t fmode)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_BPF_MAP))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_BPF_MAP, NOLOCK);
@@ -2135,7 +2137,7 @@ static int tsem_bpf_prog(struct bpf_prog *prog)
 {
 	struct tsem_event *ep;
 
-	if (bypass_event())
+	if (bypass_event(TSEM_BPF_PROG))
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_BPF_PROG, NOLOCK);
@@ -2382,6 +2384,7 @@ static int __init tsem_init(void)
 	mutex_init(&ctx->inode_mutex);
 	INIT_LIST_HEAD(&ctx->inode_list);
 
+	root_context.ops = &tsem_model0_ops;
 	root_context.model = &root_model;
 
 	retn = tsem_event_cache_init();
