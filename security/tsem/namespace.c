@@ -335,6 +335,9 @@ static struct crypto_shash *configure_digest(const char *digest,
  * @key:    A pointer to a null-terminated buffer containing the key
  *	    that will be used to authenticate the TMA's ability to set
  *	    the trust status of a process.
+ * @cache_size: The number of entries to be implemented in the
+ *		atomic allocation magazines for the security modeling
+ *		namespace being created.
  * @ops:    A pointer to the security namespace definitions and
  *	    operations for the namespace being created.
  *
