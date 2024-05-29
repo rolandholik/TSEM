@@ -13,7 +13,7 @@
 struct model {
 	struct list_head list;
 	const struct tsem_context_ops *ops;
-	const struct module *module;
+	struct module *module;
 };
 
 DEFINE_MUTEX(model_list_mutex);
@@ -34,6 +34,69 @@ static struct model *find_model(const char *name)
 }
 
 /**
+ * tsem_nsmgr_put() - Release a reference to a TSEM security model.
+ *
+ * @ops: A pointer to the tsem_context_ops structure that defines
+ *	 this model.
+ *
+ * This function is the counter part to tsem_nsmgr_get() function.
+ * A check is made to determine if a module is supplying this model and
+ * if so the reference that was taken to the module when the security
+ * namespace is created is released.
+ */
+void tsem_nsmgr_put(const struct tsem_context_ops *ops)
+{
+	struct model *model;
+
+	if (!strcmp(tsem_model0_ops.name, ops->name))
+		return;
+
+	mutex_lock(&model_list_mutex);
+	model = find_model(ops->name);
+	if (!model) {
+		pr_warn("tsem: Attempt to put an unknown model.\n");
+		goto done;
+	}
+	if (model->module)
+		module_put(model->module);
+
+ done:
+	mutex_unlock(&model_list_mutex);
+}
+
+/**
+ * tsem_nsmgr_get() - Obtain a reference to a TSEM security model.
+ *
+ * @name: A null terminated character buffer containing the name of
+ *	  the security model to obtain a reference for.
+ *
+ * This function is used to determine whether or not TSEM has access
+ * to a security model named by the called.  Upon success of locating
+ * the named security model a tsem_context_ops structure is returned
+ * that implements the model.  In addition a reference is taken to
+ * the module in order to prevent its release while a security modeling
+ * namespace is using the model.
+ *
+ * Return: If the named security model is not available a NULL pointer
+ *	   is returned.  If the model is available a pointer to the
+ *	   tsem_context_ops structure that implements the model is
+ *	   returned.
+ */
+const struct tsem_context_ops *tsem_nsmgr_get(const char *name)
+{
+	struct model *model;
+	const struct tsem_context_ops *retn = NULL;
+
+	mutex_lock(&model_list_mutex);
+	model = find_model(name);
+	if (model && try_module_get(model->module))
+		retn = model->ops;
+	mutex_unlock(&model_list_mutex);
+
+	return retn;
+}
+
+/**
  * tsem_nsmgr_register() - Register a TSEM security namespace model.
  * @ops:    A pointer to a tsem_context_ops structure that describes
  *	    the model that will be implemented.
@@ -47,9 +110,9 @@ static struct model *find_model(const char *name)
  *	   or a negative error value if registration failed.
  */
 int tsem_nsmgr_register(const struct tsem_context_ops *ops,
-			const struct module *module)
+			struct module *module)
 {
-	int retn;
+	int retn = 0;
 	struct model *model = NULL;
 
 	if (!capable(CAP_MAC_ADMIN))
@@ -58,8 +121,9 @@ int tsem_nsmgr_register(const struct tsem_context_ops *ops,
 		return -EINVAL;
 
 	mutex_lock(&model_list_mutex);
-	model = find_model(ops->name);
-	if (model) {
+	if (find_model(ops->name)) {
+		pr_warn("tsem: Attempt to insert identical model: %s\n",
+			ops->name);
 		retn = -EEXIST;
 		goto done;
 	}
@@ -72,15 +136,12 @@ int tsem_nsmgr_register(const struct tsem_context_ops *ops,
 
 	model->ops = ops;
 	model->module = module;
-	retn = 0;
+	list_add_tail(&model->list, &model_list);
+	pr_info("tsem: Registered model: '%s'\n", ops->name);
 
  done:
 	mutex_unlock(&model_list_mutex);
-	if (retn)
-		kfree(model);
-
-	pr_info("tsem: Registered model: '%s'\n", ops->name);
-	return 0;
+	return retn;
 }
 EXPORT_SYMBOL_GPL(tsem_nsmgr_register);
 
