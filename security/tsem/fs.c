@@ -65,13 +65,15 @@ static const char * const control_commands[] = {
 };
 
 enum namespace_argument_type {
-	NS_REF = 0,
+	NS_MODEL = 0,
+	NS_REF,
 	NS_DIGEST,
 	NS_KEY,
 	NS_CACHE
 };
 
 static const char * const namespace_arguments[] = {
+	"model",
 	"nsref",
 	"digest",
 	"key",
@@ -265,6 +267,7 @@ static int config_namespace(enum tsem_control_type type, const char *arg)
 	unsigned int lp, cache_size = TSEM_MAGAZINE_SIZE_INTERNAL;
 	enum namespace_argument_type ns_arg;
 	enum tsem_ns_reference ns_ref = TSEM_NS_INITIAL;
+	const struct tsem_context_ops *ops = &tsem_model0_ops;
 
 	if (type == TSEM_CONTROL_EXTERNAL || type == TSEM_CONTROL_EXPORT)
 		cache_size = TSEM_MAGAZINE_SIZE_EXTERNAL;
@@ -273,7 +276,7 @@ static int config_namespace(enum tsem_control_type type, const char *arg)
 		if (type == TSEM_CONTROL_EXTERNAL)
 			return retn;
 		return tsem_ns_create(type, digest, ns_ref, key, cache_size,
-				      &tsem_model0_ops);
+				      ops);
 	}
 
 	argv = argv_split(GFP_KERNEL, arg, &argc);
@@ -292,6 +295,11 @@ static int config_namespace(enum tsem_control_type type, const char *arg)
 			goto done;
 
 		switch (ns_arg) {
+		case NS_MODEL:
+			ops = tsem_nsmgr_get(argp);
+			if (!ops)
+				goto done;
+			break;
 		case NS_REF:
 			if (!strcmp(argp, "current"))
 				ns_ref = TSEM_NS_CURRENT;
@@ -324,8 +332,7 @@ static int config_namespace(enum tsem_control_type type, const char *arg)
 	if (type == TSEM_CONTROL_EXTERNAL && !key)
 		goto done;
 
-	retn = tsem_ns_create(type, digest, ns_ref, key, cache_size,
-			      &tsem_model0_ops);
+	retn = tsem_ns_create(type, digest, ns_ref, key, cache_size, ops);
 
  done:
 	argv_free(argv);

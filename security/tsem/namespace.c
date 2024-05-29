@@ -230,6 +230,8 @@ static void wq_put(struct work_struct *work)
 	} else
 		tsem_model_free(ctx);
 
+	tsem_nsmgr_put(ctx->ops);
+
 	crypto_free_shash(ctx->tfm);
 	tsem_event_magazine_free(ctx);
 	kfree(ctx->digestname);
