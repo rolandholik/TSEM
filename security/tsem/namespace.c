@@ -45,6 +45,7 @@
  */
 
 #include "tsem.h"
+#include "nsmgr.h"
 
 static u64 context_id;
 

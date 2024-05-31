@@ -29,6 +29,7 @@
 #include <linux/poll.h>
 
 #include "tsem.h"
+#include "nsmgr.h"
 
 static struct dentry *tsem_dir;
 static struct dentry *control;

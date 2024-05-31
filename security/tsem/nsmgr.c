@@ -9,6 +9,7 @@
  */
 
 #include "tsem.h"
+#include "nsmgr.h"
 
 struct model {
 	struct list_head list;
