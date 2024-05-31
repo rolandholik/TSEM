@@ -2249,12 +2249,6 @@ extern int tsem_event_cache_init(void);
 extern u8 *tsem_trust_aggregate(void);
 extern int tsem_trust_add_event(struct tsem_event *ep);
 
-extern void tsem_nsmgr_put(const struct tsem_context_ops *ops);
-extern const struct tsem_context_ops *tsem_nsmgr_get(const char *name);
-extern int tsem_nsmgr_register(const struct tsem_context_ops *ops,
-			       struct module *module);
-extern void tsem_nsmgr_release(const struct tsem_context_ops *ops);
-
 /*
  * The remaining inline function declarations follow the design
  * pattern of the other LSM's and implement functions that return
