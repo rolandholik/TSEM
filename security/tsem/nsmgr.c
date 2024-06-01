@@ -90,10 +90,21 @@ const struct tsem_context_ops *tsem_nsmgr_get(const char *name)
 
 	mutex_lock(&model_list_mutex);
 	model = find_model(name);
-	if (model && try_module_get(model->module))
-		retn = model->ops;
 	mutex_unlock(&model_list_mutex);
 
+	if (!model) {
+		if (request_module("%s", name))
+			return NULL;
+
+		mutex_lock(&model_list_mutex);
+		model = find_model(name);
+		mutex_unlock(&model_list_mutex);
+		if (!model)
+			return NULL;
+	}
+
+	if (model && try_module_get(model->module))
+		retn = model->ops;
 	return retn;
 }
 
