@@ -624,7 +624,7 @@ struct tsem_context {
 struct tsem_context_ops {
 	const char *name;
 	const bool *bypasses;
-	int (*event_init)(struct tsem_event *ep);
+	int (*init)(struct tsem_event *ep);
 	int (*map)(struct tsem_event *ep);
 };
 
@@ -2254,13 +2254,12 @@ extern int tsem_map_event(struct tsem_event *ep);
 extern struct tsem_event *tsem_event_allocate(enum tsem_event_type event,
 					      bool locked);
 extern int tsem_event_init(struct tsem_event *ep);
+extern int tsem_event_generate(struct tsem_event *ep);
 extern void tsem_event_put(struct tsem_event *ep);
 extern void tsem_event_get(struct tsem_event *ep);
 extern int tsem_event_magazine_allocate(struct tsem_context *ctx, size_t size);
 extern void tsem_event_magazine_free(struct tsem_context *ctx);
 extern int tsem_event_cache_init(void);
-
-extern int tsem_model0_event_init(struct tsem_event *ep);
 
 extern u8 *tsem_trust_aggregate(void);
 extern int tsem_trust_add_event(struct tsem_event *ep);
