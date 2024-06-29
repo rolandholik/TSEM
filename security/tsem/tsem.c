@@ -322,14 +322,14 @@ static int dispatch_event(struct tsem_event *ep)
 	int retn = 0;
 	struct tsem_context *ctx = tsem_context(current);
 
+	if (unlikely(tsem_task_untrusted(current)))
+		return untrusted_task(ep);
+
 	retn = tsem_event_init(ep);
 	if (retn < 0)
 		return retn;
 	if (retn == 0)
 		goto done;
-
-	if (unlikely(tsem_task_untrusted(current)))
-		return untrusted_task(ep);
 
 	if (!ctx->external)
 		retn = tsem_model_event(ep);
