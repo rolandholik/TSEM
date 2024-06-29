@@ -1616,8 +1616,6 @@ int tsem_event_init(struct tsem_event *ep)
 
 	if (retn <= 0)
 		kmem_cache_free(event_cachep, ep);
-	else
-		kref_init(&ep->kref);
 	return retn;
 }
 
@@ -1710,8 +1708,10 @@ struct tsem_event *tsem_event_allocate(enum tsem_event_type event, bool locked)
 
 	if (!locked) {
 		ep = kmem_cache_zalloc(event_cachep, GFP_KERNEL);
-		if (ep)
+		if (ep) {
 			ep->event = event;
+			kref_init(&ep->kref);
+		}
 		return ep;
 	}
 
@@ -1739,6 +1739,7 @@ struct tsem_event *tsem_event_allocate(enum tsem_event_type event, bool locked)
 		queue_work(system_highpri_wq, &ctx->ws[index].work);
 		ep->event = event;
 		ep->locked = true;
+		kref_init(&ep->kref);
 		return ep;
 	}
 
