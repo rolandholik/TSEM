@@ -1747,15 +1747,14 @@ int tsem_map_task(struct file *file, u8 *task_id)
 
 	ep->CELL.file.in.file = file;
 	retn = tsem_event_init(ep);
-	if (retn <= 0)
-		return retn;
+	if (retn > 0) {
+		memset(null_taskid, '\0', tsem_digestsize());
+		retn = map_event(ep, tsem_task(current)->p_task_id,
+				 null_taskid, task_id);
+	}
 
-	memset(null_taskid, '\0', tsem_digestsize());
-	retn = map_event(ep, tsem_task(current)->p_task_id, null_taskid,
-			 task_id);
 	tsem_event_put(ep);
-
-	return 0;
+	return retn;
 }
 
 /**
