@@ -156,7 +156,6 @@ static void trigger_event(struct tsem_context *ctx)
 
 int tsem_export_show(struct seq_file *sf, void *v)
 {
-	bool locked = false;
 	struct export_event *exp = NULL;
 	struct tsem_context *ctx = tsem_context(current);
 
@@ -188,14 +187,12 @@ int tsem_export_show(struct seq_file *sf, void *v)
 	case EXPORT_EVENT:
 		tsem_fs_show_key(sf, "type", "}, ", "%s", "event");
 		tsem_fs_show_trajectory(sf, exp->u.ep);
-		locked = exp->u.ep->locked;
 		tsem_event_put(exp->u.ep);
 		break;
 
 	case EXPORT_ASYNC_EVENT:
 		tsem_fs_show_key(sf, "type", "}, ", "%s", "async_event");
 		tsem_fs_show_trajectory(sf, exp->u.ep);
-		locked = exp->u.ep->locked;
 		tsem_event_put(exp->u.ep);
 		break;
 
