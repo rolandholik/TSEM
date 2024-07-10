@@ -24,73 +24,6 @@
 
 #include "tsem.h"
 
-static int get_COE_mapping(struct tsem_event *ep, u8 *mapping)
-{
-	int retn = 0, size;
-	u8 *p;
-	SHASH_DESC_ON_STACK(shash, tfm);
-
-	shash->tfm = tsem_digest();
-	retn = crypto_shash_init(shash);
-	if (retn)
-		goto done;
-
-	p = (u8 *) &ep->COE.uid;
-	size = sizeof(ep->COE.uid);
-	retn = crypto_shash_update(shash, p, size);
-	if (retn)
-		goto done;
-
-	p = (u8 *) &ep->COE.euid;
-	size = sizeof(ep->COE.euid);
-	retn = crypto_shash_update(shash, p, size);
-	if (retn)
-		goto done;
-
-	p = (u8 *) &ep->COE.suid;
-	size = sizeof(ep->COE.suid);
-	retn = crypto_shash_update(shash, p, size);
-	if (retn)
-		goto done;
-
-	p = (u8 *) &ep->COE.gid;
-	size = sizeof(ep->COE.gid);
-	retn = crypto_shash_update(shash, p, size);
-	if (retn)
-		goto done;
-
-	p = (u8 *) &ep->COE.egid;
-	size = sizeof(ep->COE.egid);
-	retn = crypto_shash_update(shash, p, size);
-	if (retn)
-		goto done;
-
-	p = (u8 *) &ep->COE.sgid;
-	size = sizeof(ep->COE.sgid);
-	retn = crypto_shash_update(shash, p, size);
-	if (retn)
-		goto done;
-
-	p = (u8 *) &ep->COE.fsuid;
-	size = sizeof(ep->COE.fsuid);
-	retn = crypto_shash_update(shash, p, size);
-	if (retn)
-		goto done;
-
-	p = (u8 *) &ep->COE.fsgid;
-	size = sizeof(ep->COE.fsgid);
-	retn = crypto_shash_update(shash, p, size);
-	if (retn)
-		goto done;
-
-	p = (u8 *) &ep->COE.capeff;
-	size = sizeof(ep->COE.capeff);
-	retn = crypto_shash_finup(shash, p, size, mapping);
-
- done:
-	return retn;
-}
-
 static int add_u16(struct shash_desc *shash, u16 value)
 {
 	return crypto_shash_update(shash, (char *) &value, sizeof(value));
@@ -123,6 +56,58 @@ static int add_str(struct shash_desc *shash, char *str)
 	p = (u8 *) str;
 	size = strlen(str);
 	retn = crypto_shash_update(shash, p, size);
+
+ done:
+	return retn;
+}
+
+static int get_COE_mapping(struct tsem_event *ep, u8 *mapping)
+{
+	int retn = 0;
+	SHASH_DESC_ON_STACK(shash, tfm);
+
+	shash->tfm = tsem_digest();
+	retn = crypto_shash_init(shash);
+	if (retn)
+		goto done;
+
+	retn = add_u32(shash, ep->COE.uid);
+	if (retn)
+		goto done;
+
+	retn = add_u32(shash, ep->COE.euid);
+	if (retn)
+		goto done;
+
+	retn = add_u32(shash, ep->COE.suid);
+	if (retn)
+		goto done;
+
+	retn = add_u32(shash, ep->COE.gid);
+	if (retn)
+		goto done;
+
+	retn = add_u32(shash, ep->COE.egid);
+	if (retn)
+		goto done;
+
+	retn = add_u32(shash, ep->COE.sgid);
+	if (retn)
+		goto done;
+
+	retn = add_u32(shash, ep->COE.fsuid);
+	if (retn)
+		goto done;
+
+	retn = add_u32(shash, ep->COE.fsgid);
+	if (retn)
+		goto done;
+
+	retn = add_u64(shash, ep->COE.capeff.value);
+	if (retn)
+		goto done;
+
+	retn = crypto_shash_final(shash, mapping);
 
  done:
 	return retn;
