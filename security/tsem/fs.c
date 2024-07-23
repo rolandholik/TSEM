@@ -809,7 +809,7 @@ static void show_socket_msg(struct seq_file *c, struct tsem_event *ep)
 			ipv4 = &args->out.ipv4;
 			tsem_fs_show_field(c, "af_inet");
 			tsem_fs_show_key(c, "port", ",", "%u", ipv4->sin_port);
-			tsem_fs_show_key(c, "addrress", "}}}", "%u",
+			tsem_fs_show_key(c, "address", "}}}", "%u",
 					 ipv4->sin_addr.s_addr);
 			break;
 		case AF_INET6:
