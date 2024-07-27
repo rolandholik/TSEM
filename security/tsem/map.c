@@ -984,13 +984,8 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 		if (retn)
 			goto done;
 
-		if (ep->CELL.netlink.out.nsid_set) {
+		if (ep->CELL.netlink.out.nsid_set)
 			retn = add_u32(shash, ep->CELL.netlink.out.flags);
-			if (retn)
-				goto done;
-		}
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_IPC_PERMISSION:
@@ -999,10 +994,6 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_u16(shash, ep->CELL.ipc.perm_flag);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_SHM_ASSOCIATE:
@@ -1017,10 +1008,6 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_u32(shash, ep->CELL.ipc.value);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_MSG_QUEUE_MSGRCV:
@@ -1039,10 +1026,6 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_u32(shash, ep->CELL.ipc.value);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_SEM_SEMOP:
@@ -1055,18 +1038,10 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_u32(shash, ep->CELL.ipc.value);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_INODE_CREATE:
 		retn = add_inode_create(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_INODE_MKDIR:
@@ -1079,10 +1054,6 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_u16(shash, ep->CELL.inode.mode);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_INODE_RMDIR:
@@ -1092,34 +1063,18 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_dentry(shash, &ep->CELL.inode.out.dentry);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_SYSLOG:
 		retn = add_u32(shash, ep->CELL.value);
-		if (retn)
-			break;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_SETTIME:
 		retn = add_settime(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_INODE_LINK:
 		retn = add_inode_link(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_INODE_SYMLINK:
@@ -1132,10 +1087,6 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_str(shash, ep->CELL.inode.out.old_name);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_INODE_MKNOD:
@@ -1152,37 +1103,19 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_u32(shash, ep->CELL.inode.dev);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_INODE_RENAME:
 		retn = add_inode_rename(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_INODE_KILLPRIV:
 		retn = add_dentry(shash, &ep->CELL.inode.out.dentry);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_FILE_OPEN:
 	case TSEM_BPRM_COMMITTED_CREDS:
 		retn = add_file(shash, &ep->CELL.file);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
-		if (retn)
-			goto done;
 		break;
 
 	case TSEM_FILE_IOCTL:
@@ -1193,26 +1126,14 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_u32(shash, ep->CELL.file.cmd);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_FILE_RECEIVE:
 		retn = add_file(shash, &ep->CELL.file);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_MMAP_FILE:
 		retn = add_mmap_file(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_UNIX_STREAM_CONNECT:
@@ -1223,29 +1144,17 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_socket(shash, &ep->CELL.socket.out.sockb);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_SOCKET_SENDMSG:
 	case TSEM_SOCKET_RECVMSG:
 		retn = add_socket_msg(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_SOCKET_GETSOCKNAME:
 	case TSEM_SOCKET_GETPEERNAME:
 	case TSEM_TUN_DEV_ATTACH_QUEUE:
 		retn = add_socket(shash, &ep->CELL.socket.out.socka);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_SOCKET_CREATE:
@@ -1262,27 +1171,15 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_u32(shash, ep->CELL.socket.out.socka.kern);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_SOCKET_CONNECT:
 	case TSEM_SOCKET_BIND:
 		retn = add_socket_connect_bind(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_SOCKET_ACCEPT:
 		retn = add_socket_accept(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_SOCKET_LISTEN:
@@ -1292,10 +1189,6 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_u32(shash, ep->CELL.socket.value);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_SOCKET_SETSOCKOPT:
@@ -1308,18 +1201,10 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_u32(shash, ep->CELL.socket.optname);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_KERNEL_MODULE_REQUEST:
 		retn = add_str(shash, ep->CELL.kernel.out.kmod_name);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_KERNEL_LOAD_DATA:
@@ -1328,10 +1213,6 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_u32(shash, ep->CELL.kernel.contents);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_KERNEL_READ_FILE:
@@ -1344,58 +1225,30 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_u32(shash, ep->CELL.kernel.contents);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_TASK_KILL:
 		retn = add_task_kill(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_PTRACE_ACCESS_CHECK:
 		retn = add_ptrace_access_check(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_PTRACE_TRACEME:
 		retn = add_task(shash, ep->CELL.task_kill.source);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_CAPGET:
 		retn = add_capget(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_CAPSET:
 		retn = add_capset(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_CAPABLE:
 		retn = add_capable(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_TASK_SETPGID:
@@ -1407,7 +1260,7 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 
 		p = ep->CELL.task_kill.source;
 		size = sizeof(ep->CELL.task_kill.source);
-		retn = crypto_shash_finup(shash, p, size, mapping);
+		retn = crypto_shash_update(shash, p, size);
 		break;
 
 	case TSEM_TASK_GETPGID:
@@ -1416,10 +1269,6 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 	case TSEM_TASK_SETSCHEDULER:
 	case TSEM_TASK_GETSCHEDULER:
 		retn = add_task(shash, ep->CELL.task_kill.target);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_TASK_SETNICE:
@@ -1431,10 +1280,6 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_u32(shash, ep->CELL.task_kill.u.value);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_TASK_PRLIMIT:
@@ -1447,18 +1292,10 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_u32(shash, ep->CELL.task_prlimit.flags);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_TASK_SETRLIMIT:
 		retn = add_task_setrlimit(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_TASK_PRCTL:
@@ -1478,26 +1315,14 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_u64(shash, ep->CELL.task_prctl.arg5);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_INODE_GETATTR:
 		retn = add_dentry(shash, &ep->CELL.inode_attr.out.dentry);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_INODE_SETATTR:
 		retn = add_inode_setattr(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_INODE_SETXATTR:
@@ -1505,10 +1330,6 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 	case TSEM_INODE_REMOVEXATTR:
 	case TSEM_INODE_LISTXATTR:
 		retn = add_xattr(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_KEY_ALLOC:
@@ -1517,18 +1338,10 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 			goto done;
 
 		retn = add_u64(shash, ep->CELL.key.flags);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_KEY_PERMISSION:
 		retn = add_key_permission(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_SB_MOUNT:
@@ -1549,83 +1362,43 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 		}
 
 		retn = add_u64(shash, ep->CELL.sb.flags);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_SB_UMOUNT:
 		retn = add_sb_umount(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_SB_REMOUNT:
 		retn = add_sb_remount(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_SB_STATFS:
 		retn = add_dentry(shash, &ep->CELL.sb.out.dentry);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_SB_PIVOTROOT:
 	case TSEM_MOVE_MOUNT:
 		retn = add_move_path(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_QUOTACTL:
 		retn = add_quotactl(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_QUOTA_ON:
 		retn = add_dentry(shash, &ep->CELL.quota.out.dentry);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_BPF:
 		retn = add_bpf(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_BPF_MAP:
 		retn = add_bpf_map(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	case TSEM_BPF_PROG:
 		retn = add_bpf_prog(shash, ep);
-		if (retn)
-			goto done;
-
-		retn = crypto_shash_final(shash, mapping);
 		break;
 
 	default:
@@ -1637,13 +1410,14 @@ static int get_cell_mapping(struct tsem_event *ep, u8 *mapping)
 
 		p = tsem_context(current)->zero_digest;
 		size = tsem_digestsize();
-		retn = crypto_shash_finup(shash, p, size, mapping);
-		if (retn)
-			goto done;
+		retn = crypto_shash_update(shash, p, size);
 		break;
 	}
 
  done:
+	if (!retn)
+		retn = crypto_shash_final(shash, mapping);
+
 	if (ep->event == TSEM_INODE_SETXATTR) {
 		kfree(ep->CELL.inode_xattr.out.value);
 		ep->CELL.inode_xattr.out.value = NULL;
