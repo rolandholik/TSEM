@@ -1050,10 +1050,18 @@ security namespace:
 Each argument accepts key=value pairs that configure the namespace.
 The following key values are currently accepted:
 
+	model
 	nsref
 	digest
 	cache
 	key
+
+The 'model' keyword takes as an argument the name of a loadable module
+that will be used to implement the event processing for a security
+modeling namespace.  If the module has not already been loaded, TSEM
+will attempt to dynamically load the module.  The argument name will
+be the THIS_MODULE CPP define that was generated when the module was
+built.
 
 The 'nsref' keyword takes one of the following two values:
 
