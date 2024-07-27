@@ -88,6 +88,18 @@ Description:
 		directives accepts the following key=value pairs that
 		configure the namespace:
 
+
+		model=MODULE_NAME
+			The model key specifies the name of a loadable
+			module that is to be used to conduct the event
+			processing for a security modeling namespace.
+
+			The MODULE_NAME value is the same as the
+			THIS_MODULE CPP define that is generated when
+			the module was built and is not necessarily
+			the name of the file that contained the
+			loadable module code.
+
 		nsref=initial|current
 			The nsref key specifies the namespace that is
 			to be referenced when determining the UID/GID
