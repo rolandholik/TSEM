@@ -1217,6 +1217,17 @@ pseudonym for the internal TMA:
 	base 16 representation of a digest value of the cryptographic
 	hash function defined for the security modeling namespace.
 
+The following keyword is used to lock the current TSEM modeling
+configuration:
+
+	lock
+
+This command is only valid when loadable module support is available
+in the kernel.  When executed this command blocks any further TSEM
+models from being registered.  In addition the reference count on all
+currently registgered modeling modules is increased so that it is not
+possible to remove currently loaded modules.
+
 The following two directories are implemented in the top level TSEM
 control directory in order to support interfaces to internally and
 externally modeled namespaces:
