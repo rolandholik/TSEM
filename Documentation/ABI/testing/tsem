@@ -90,15 +90,16 @@ Description:
 
 
 		model=MODULE_NAME
-			The model key specifies the name of a loadable
-			module that is to be used to conduct the event
+			The model key specifies the name of a security
+			model that is to be used to conduct the event
 			processing for a security modeling namespace.
 
-			The MODULE_NAME value is the same as the
-			THIS_MODULE CPP define that is generated when
-			the module was built and is not necessarily
-			the name of the file that contained the
-			loadable module code.
+			If the standard build practice of using the
+			KBUILD_MODNAME CPP define to set the name of
+			the security model the model name will match
+			the name of the module, as displayed by the
+			lsmod command.  There is no requirement that
+			the security model name match the module name.
 
 		nsref=initial|current
 			The nsref key specifies the namespace that is
