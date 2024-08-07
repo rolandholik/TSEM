@@ -60,6 +60,7 @@
 #include <linux/security.h>
 
 #include "tsem.h"
+#include "nsmgr.h"
 
 static const struct lsm_id tsem_lsmid = {
 	.name = "tsem",
@@ -278,6 +279,14 @@ static int __init set_default_hash_function(char *hash_function)
 	return 1;
 }
 __setup("tsem_digest=", set_default_hash_function);
+
+static int __init set_locked_status(char *str)
+{
+	tsem_nsmgr_lock(true);
+	pr_info("tsem: Model state locked by command-line request.\n");
+	return 1;
+}
+__setup("tsem_locked", set_locked_status);
 
 static bool bypass_event(const enum tsem_event_type event)
 {

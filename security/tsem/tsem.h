@@ -241,7 +241,15 @@ enum tsem_action_type {
  *			  the base value for the computation of the
  *			  functional values (measurement and state) of
  *			  the security domain/namespace.
-
+ * TSEM_CONTROL_LOCK: This ordinal value is used to indicate that a
+ *		      request is being made to lock the model configuration
+ *		      of the host from further modification.  Invoking
+ *		      this command causes any additional requests to
+ *		      register security models to be denied.  In addition
+ *		      the reference count of all currently loaded models
+ *		      is increased in order to prevent the models from
+ *		      being unloaded.
+ *
  * This enumeration type is used to designate what type of control
  * action is to be implemented when arguments are written to the TSEM
  * control file (/sys/kernel/security/tsem/control).  The ordinal
@@ -258,7 +266,8 @@ enum tsem_control_type {
 	TSEM_CONTROL_UNTRUSTED,
 	TSEM_CONTROL_MAP_STATE,
 	TSEM_CONTROL_MAP_PSEUDONYM,
-	TSEM_CONTROL_MAP_BASE
+	TSEM_CONTROL_MAP_BASE,
+	TSEM_CONTROL_LOCK
 };
 
 /**

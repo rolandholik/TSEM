@@ -7023,6 +7023,9 @@
 			Format: {name of the cryptographic hash function}
 			Default: sha256
 
+	tsem_lock	[TSEM] Lock the TSEM model state so that no kernel
+			module based security models can be registered.
+
 	tsem_mode=	[TSEM] Set the mode that the Trusted Security Event
 			Modeling LSM is to run in.
 			Format: <string>

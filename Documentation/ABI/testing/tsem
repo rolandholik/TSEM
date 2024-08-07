@@ -263,6 +263,17 @@ Description:
 			value or measurement is current and not being
 			replayed.
 
+		lock
+			This command is only valid when loadable
+			module support is available in the kernel.
+
+			When executed this command blocks any further
+			TSEM models from being registered.  In
+			addition the reference count on all currently
+			registered modeling modules is increased so
+			that it is impossible to remove currently
+			loaded models.
+
 What:		/sys/kernel/security/tsem/internal_tma
 Date:		March 2024
 Contact:	Greg Wettstein <greg@enjellic.com>

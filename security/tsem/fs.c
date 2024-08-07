@@ -62,7 +62,8 @@ static const char * const control_commands[] = {
 	"untrusted",
 	"state",
 	"pseudonym",
-	"base"
+	"base",
+	"lock"
 };
 
 enum namespace_argument_type {
@@ -1505,6 +1506,9 @@ static ssize_t write_control(struct file *file, const char __user *buf,
 	case TSEM_CONTROL_MAP_PSEUDONYM:
 	case TSEM_CONTROL_MAP_BASE:
 		retn = config_point(type, arg);
+		break;
+	case TSEM_CONTROL_LOCK:
+		retn = tsem_nsmgr_lock(false);
 		break;
 	}
 
