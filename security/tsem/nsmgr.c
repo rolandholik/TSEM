@@ -11,6 +11,9 @@
 #include "tsem.h"
 #include "nsmgr.h"
 
+static bool locked;
+static bool setup_locked __ro_after_init;
+
 struct model {
 	struct list_head list;
 	const struct tsem_context_ops *ops;
@@ -109,6 +112,49 @@ const struct tsem_context_ops *tsem_nsmgr_get(const char *name)
 }
 
 /**
+ * tsem_nsmgr_lock() - Lock the TSEM loadable module infrastructure.
+ *
+ * @by_setup: This boolean value is used to signal that the request to
+ *	      lock the model state is being done by the system setup.
+ *
+ * This function disables the registration of additional loadable
+ * modules for model implementation.  It also raises the reference count
+ * for each modules that is loaded to prevent the current modules from
+ * being unloaded.
+ *
+ * Return: This function returns 0 if the modeling infrastructure was
+ *	   locked or a negative value if locking fails.
+ */
+int tsem_nsmgr_lock(const bool by_setup)
+{
+	struct model *entry = NULL;
+
+	if (by_setup) {
+		setup_locked = true;
+		return 0;
+	}
+
+	if (setup_locked)
+		return -EINVAL;
+	if (!capable(CAP_MAC_ADMIN))
+		return -EPERM;
+	if (tsem_context(current)->id)
+		return -EINVAL;
+	if (locked)
+		return -EINVAL;
+	locked = true;
+
+	mutex_lock(&model_list_mutex);
+	list_for_each_entry(entry, &model_list, list) {
+		__module_get(entry->module);
+	}
+	mutex_unlock(&model_list_mutex);
+
+	pr_info("tsem: Model state is now locked.\n");
+	return 0;
+}
+
+/**
  * tsem_nsmgr_register() - Register a TSEM security namespace model.
  * @ops:    A pointer to a tsem_context_ops structure that describes
  *	    the model that will be implemented.
@@ -127,6 +173,10 @@ int tsem_nsmgr_register(const struct tsem_context_ops *ops,
 	int retn = 0;
 	struct model *model = NULL;
 
+	if (setup_locked || locked) {
+		pr_warn("tsem: Attempt to register model in locked state.\n");
+		return -EINVAL;
+	}
 	if (!capable(CAP_MAC_ADMIN))
 		return -EPERM;
 	if (!strcmp(tsem_model0_ops.name, ops->name))
@@ -164,10 +214,19 @@ EXPORT_SYMBOL_GPL(tsem_nsmgr_register);
  *
  * This function is used to release the use of security modeling
  * namespace model.
+ *
+ * Return: This function returns 0 if the model was successfully released
+ *	   or a negative error value if release failed.
  */
-void tsem_nsmgr_release(const struct tsem_context_ops *ops)
+int tsem_nsmgr_release(const struct tsem_context_ops *ops)
 {
+	int retn = 0;
 	struct model *model;
+
+	if (setup_locked || locked) {
+		pr_warn("tsem: Attempt to release model in locked state.\n");
+		return -EINVAL;
+	}
 
 	mutex_lock(&model_list_mutex);
 
@@ -175,6 +234,7 @@ void tsem_nsmgr_release(const struct tsem_context_ops *ops)
 	if (!model) {
 		pr_warn("tsem: Model '%s' not found for release.\n",
 			ops->name);
+		retn = -EINVAL;
 		goto done;
 	}
 	list_del(&model->list);
@@ -182,5 +242,6 @@ void tsem_nsmgr_release(const struct tsem_context_ops *ops)
  done:
 	mutex_unlock(&model_list_mutex);
 	pr_info("tsem: Released model: '%s'\n", ops->name);
+	return retn;
 }
 EXPORT_SYMBOL_GPL(tsem_nsmgr_release);
