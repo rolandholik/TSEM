@@ -466,6 +466,9 @@ struct tsem_task {
  * @kref: Reference count for the context.
  * @work: Work structure for asynchronous release of the context.
  * @id: The index number of the context.
+ * @event_number: The current sequence number of events that have occurred
+ *		  in the security modeling namespace represented by
+ *		  the structure.
  * @sealed: A status variable indicating whether or not the
  *	    modeling context can be modified.
  * @use_current_ns: Status variable indicating which user namespace
@@ -589,6 +592,7 @@ struct tsem_context {
 	struct work_struct work;
 
 	u64 id;
+	u64 event_number;
 	bool sealed;
 	bool use_current_ns;
 
@@ -1880,6 +1884,8 @@ struct tsem_capability_args {
  *	      event described by the structure.
  * @p_instance: The parent process instance number of the process
  *		executing the event described by the structure.
+ * @event_number: The sequence number of the event in the security modeling
+ *		  namespace that generated the event.
  * @pid: The process id number, in the global pid namespace, of the
  *	 task that is executing the security event.
  * @comm: A pointer to a null terminated buffer containing the name of
@@ -1993,6 +1999,7 @@ struct tsem_event {
 	u64 instance;
 	u64 p_instance;
 	u64 timestamp;
+	u64 event_number;
 	pid_t pid;
 	char comm[TASK_COMM_LEN];
 

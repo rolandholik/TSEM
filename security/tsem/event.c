@@ -1617,6 +1617,8 @@ int tsem_event_init(struct tsem_event *ep)
 	if (!ep->no_params)
 		retn = tsem_context(current)->ops->init(ep);
 
+	if (retn > 0)
+		ep->event_number = ++tsem_context(current)->event_number;
 	return retn;
 }
 
