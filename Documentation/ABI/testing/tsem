@@ -586,6 +586,7 @@ Event encoding:
 The 'event' label encodes a value structure of the following form:
 
 	"event": {
+		"number": "NN",
 	        "process": "ASCII",
 	        "type": "ASCII",
 	        "ttd": "NN",
@@ -596,6 +597,10 @@ The 'event' label encodes a value structure of the following form:
 	{
 
 Where the value type for the individual keys is as follows:
+
+	number:		A 64-bit numeric value representing the sequence
+			number of the event in the security modeling
+			namespace that generated the event.
 
 	process:	The name of the process (current->comm) that
 			is invoking the security handler.
