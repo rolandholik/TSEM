@@ -1878,6 +1878,8 @@ struct tsem_capability_args {
  *	  refill the event magazine structures.
  * @event: The enumeration type describing the security event that the
  *	   structure is defining.
+ * @context: The context number of the security modeling namespace that
+ *	     generated the event.
  * @locked: A boolean flag used to indicate whether or not the
  *	    security event is running in atomic context.
  * @instance: The process instance number that is executing the
@@ -1995,6 +1997,7 @@ struct tsem_event {
 	void (*event_free)(struct tsem_event *ep);
 
 	enum tsem_event_type event;
+	u64 context;
 	bool locked;
 	u64 instance;
 	u64 p_instance;
