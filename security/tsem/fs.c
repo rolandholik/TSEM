@@ -364,6 +364,7 @@ static void show_event(struct seq_file *c, struct tsem_event *ep)
 	tsem_fs_show_field(c, "event");
 	if (ep->pid)
 		tsem_fs_show_key(c, "pid", ",", "%u", ep->pid);
+	tsem_fs_show_key(c, "context", ",", "%llu", ep->context);
 	tsem_fs_show_key(c, "number", ",", "%llu", ep->event_number);
 	tsem_fs_show_key(c, "process", ",", "%s", ep->comm);
 	tsem_fs_show_key(c, "type", ",", "%s", tsem_names[ep->event]);

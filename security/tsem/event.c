@@ -1602,6 +1602,7 @@ int tsem_event_init(struct tsem_event *ep)
 	struct tsem_task *task = tsem_task(current);
 
 	ep->pid = task_pid_nr(current);
+	ep->context = tsem_context(current)->id;
 	ep->instance = task->instance;
 	ep->p_instance = task->p_instance;
 	ep->timestamp = ktime_get_boottime_ns();
