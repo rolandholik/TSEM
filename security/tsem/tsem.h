@@ -593,6 +593,7 @@ struct tsem_context {
 
 	u64 id;
 	u64 event_number;
+	u64 timestamp;
 	bool sealed;
 	bool use_current_ns;
 
