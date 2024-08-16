@@ -1599,13 +1599,14 @@ EXPORT_SYMBOL_GPL(tsem_event_generate);
 int tsem_event_init(struct tsem_event *ep)
 {
 	int retn = 1;
+	u64 timestamp = ktime_get_boottime_ns();
 	struct tsem_task *task = tsem_task(current);
 
 	ep->pid = task_pid_nr(current);
 	ep->context = tsem_context(current)->id;
 	ep->instance = task->instance;
 	ep->p_instance = task->p_instance;
-	ep->timestamp = ktime_get_boottime_ns();
+	ep->timestamp = timestamp - tsem_context(current)->timestamp;
 	memcpy(ep->comm, current->comm, sizeof(ep->comm));
 	memcpy(ep->task_id, task->task_id, tsem_digestsize());
 	memcpy(ep->p_task_id, task->p_task_id, tsem_digestsize());

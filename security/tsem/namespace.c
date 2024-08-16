@@ -432,6 +432,7 @@ int tsem_ns_create(const enum tsem_control_type type, const char *digest,
 	new_ctx->tfm = tfm;
 	new_ctx->ops = ops;
 	new_ctx->digestname = use_digest;
+	new_ctx->timestamp = ktime_get_boottime_ns();
 	memcpy(new_ctx->zero_digest, zero_digest,
 	       crypto_shash_digestsize(tfm));
 
@@ -514,6 +515,7 @@ int tsem_ns_export_root(unsigned int magazine_size)
 		kfree(new_ctx);
 	} else {
 		new_ctx->tfm = tsk->context->tfm;
+		new_ctx->timestamp = ktime_get_boottime_ns();
 		new_ctx->digestname = tsk->context->digestname;
 		memcpy(new_ctx->zero_digest, tsk->context->zero_digest,
 		       crypto_shash_digestsize(tsk->context->tfm));
