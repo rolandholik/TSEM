@@ -418,11 +418,7 @@ struct vfs_ns_cap_data {
 
 #define CAP_CHECKPOINT_RESTORE	40
 
-/* Allow modifications to the trust status of the system */
-
-#define CAP_ML	41
-
-#define CAP_LAST_CAP         CAP_ML
+#define CAP_LAST_CAP         CAP_CHECKPOINT_RESTORE
 
 #define cap_valid(x) ((x) >= 0 && (x) <= CAP_LAST_CAP)
 
