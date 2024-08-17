@@ -462,10 +462,10 @@ static int tsem_task_kill(struct task_struct *target,
 		return 0;
 	if (sig == SIGURG)
 		return 0;
-	if (!capable(TSEM_CONTROL_CAPABILITY) &&
-	    has_capability_noaudit(target, TSEM_CONTROL_CAPABILITY))
+	if (!capable(CAP_MAC_ADMIN) &&
+	    has_capability_noaudit(target, CAP_MAC_ADMIN))
 		return -EPERM;
-	if (!capable(TSEM_CONTROL_CAPABILITY) && cross_model)
+	if (!capable(CAP_MAC_ADMIN) && cross_model)
 		return -EPERM;
 
 	ep = tsem_event_allocate(TSEM_TASK_KILL, LOCKED);

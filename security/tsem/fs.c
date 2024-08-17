@@ -76,7 +76,7 @@ static bool can_access_fs(void)
 
 	if (ctx->external)
 		return false;
-	if (capable(TSEM_CONTROL_CAPABILITY))
+	if (capable(CAP_MAC_ADMIN))
 		return true;
 	if (ctx->sealed)
 		return false;
@@ -1418,7 +1418,7 @@ static const struct file_operations trajectory_point_ops = {
 
 static int open_control(struct inode *inode, struct file *filp)
 {
-	if (!capable(TSEM_CONTROL_CAPABILITY))
+	if (!capable(CAP_MAC_ADMIN))
 		return -EACCES;
 	if (!(filp->f_flags & O_WRONLY))
 		return -EACCES;
@@ -1817,7 +1817,7 @@ static __poll_t export_poll(struct file *file, struct poll_table_struct *wait)
 
 static int export_open(struct inode *inode, struct file *file)
 {
-	if (!capable(TSEM_CONTROL_CAPABILITY))
+	if (!capable(CAP_MAC_ADMIN))
 		return -EACCES;
 	return single_open(file, &tsem_export_show, NULL);
 }

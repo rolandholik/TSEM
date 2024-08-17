@@ -32,9 +32,6 @@
 #include <crypto/hash_info.h>
 #include <net/af_unix.h>
 
-/* The capability needed to manage TSEM. */
-#define TSEM_CONTROL_CAPABILITY CAP_ML
-
 /*
  * The number of 'slots' in the structure magazines that are used to
  * satisfy modeling of security events that are called in atomic context.
