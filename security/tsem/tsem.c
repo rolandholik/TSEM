@@ -323,8 +323,10 @@ static int dispatch_event(struct tsem_event *ep)
 	struct tsem_context *ctx = tsem_context(current);
 
 	retn = tsem_event_init(ep);
-	if (retn)
+	if (retn < 0)
 		return retn;
+	if (retn == 0)
+		goto done;
 
 	if (unlikely(tsem_task_untrusted(current)))
 		return untrusted_task(ep);
@@ -334,6 +336,7 @@ static int dispatch_event(struct tsem_event *ep)
 	else
 		retn = tsem_export_event(ep);
 
+ done:
 	tsem_event_put(ep);
 	return retn;
 }
