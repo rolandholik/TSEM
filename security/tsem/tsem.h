@@ -492,6 +492,9 @@ struct tsem_task {
  * @magazine: An array of pointers to tsem_event structures that are
  *	      pre-allocated for security handlers that are called in
  *	      atomic context.
+ * @ops: A pointer to the tsem_context_ops that implements the
+ *	 models for the security model using in a security modeling
+ *	 namespace.
  * @model: If the modeling context is implemented with a kernel based
  *	   trusted model agent this pointer will point to the struct
  *	   tsem_model structure that maintains the state of the
@@ -602,17 +605,23 @@ struct tsem_context {
 
 /**
  * struct tsem_context_ops - Security modeling namespace operations.
+ * @char: A pointer to a null-terminated array containing the name
+ *	  of the security model being implemented.
  * @bypass: A pointer to an array of booleans of size TSEM_EVENT_CNT
  *	    that specify whether or not a security event handler should
  *	    be bypassed.
+ * @event_init: A pointer to the function that implements initialization
+ *		of the characteristics of the security event.
  *
  * This structure is used to define the operations that are available
  * for a security modeling namespace.  It provides the mechanism for
- * customizing the models that can be implemented by a namespace.
+ * customizing the CELL descriptions that are implemented for a security
+ * model.
  */
 struct tsem_context_ops {
 	const char *name;
 	const bool *bypasses;
+	int (*event_init)(struct tsem_event *ep);
 };
 
 /**
@@ -1964,6 +1973,7 @@ struct tsem_event {
 	struct kref kref;
 	struct list_head list;
 	struct work_struct work;
+	void (*event_free)(struct tsem_event *ep);
 
 	enum tsem_event_type event;
 	bool locked;
@@ -2245,6 +2255,8 @@ extern void tsem_event_get(struct tsem_event *ep);
 extern int tsem_event_magazine_allocate(struct tsem_context *ctx, size_t size);
 extern void tsem_event_magazine_free(struct tsem_context *ctx);
 extern int tsem_event_cache_init(void);
+
+extern int tsem_model0_event_init(struct tsem_event *ep);
 
 extern u8 *tsem_trust_aggregate(void);
 extern int tsem_trust_add_event(struct tsem_event *ep);

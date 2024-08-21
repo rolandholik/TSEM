@@ -1747,7 +1747,7 @@ int tsem_map_task(struct file *file, u8 *task_id)
 
 	ep->CELL.file.in.file = file;
 	retn = tsem_event_init(ep);
-	if (retn)
+	if (retn <= 0)
 		return retn;
 
 	memset(null_taskid, '\0', tsem_digestsize());
