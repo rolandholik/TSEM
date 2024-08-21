@@ -1555,4 +1555,5 @@ const struct tsem_context_ops tsem_model0_ops = {
 	.name = "model0",
 	.bypasses = event_bypasses,
 	.event_init = tsem_model0_event_init,
+	.map = tsem_map_event
 };

@@ -612,6 +612,9 @@ struct tsem_context {
  *	    be bypassed.
  * @event_init: A pointer to the function that implements initialization
  *		of the characteristics of the security event.
+ * @map: A pointer to the function that implements the mapping
+ *	 of security event characteristics into a security
+ *	 coefficient.
  *
  * This structure is used to define the operations that are available
  * for a security modeling namespace.  It provides the mechanism for
@@ -622,6 +625,7 @@ struct tsem_context_ops {
 	const char *name;
 	const bool *bypasses;
 	int (*event_init)(struct tsem_event *ep);
+	int (*map)(struct tsem_event *ep);
 };
 
 /**
@@ -2245,7 +2249,7 @@ extern void tsem_export_magazine_free(struct tsem_external *ext);
 extern int tsem_export_cache_init(void);
 
 extern int tsem_map_task(struct file *file, u8 *mapping);
-int tsem_map_event(struct tsem_event *ep);
+extern int tsem_map_event(struct tsem_event *ep);
 
 extern struct tsem_event *tsem_event_allocate(enum tsem_event_type event,
 					      bool locked);
