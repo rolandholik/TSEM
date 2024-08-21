@@ -460,7 +460,7 @@ int tsem_model_event(struct tsem_event *ep)
 	struct tsem_task *task = tsem_task(current);
 	struct tsem_context *ctx = task->context;
 
-	retn = tsem_map_event(ep);
+	retn = ctx->ops->map(ep);
 	if (retn)
 		return retn;
 
