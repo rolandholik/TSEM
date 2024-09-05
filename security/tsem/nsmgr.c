@@ -5,7 +5,15 @@
  * Author: Dr. Greg Wettstein <greg@enjellic.com>
  *
  * This file contains infrastructure for managing the security models
- * available for TSEM.
+ * for TSEM that are implemented by kernel loadable modules. Any model
+ * provided by a kernel loadable module must be registered before it
+ * can be specified for a security modeling namespace.
+ *
+ * The registration of additional models, or the removal of existing
+ * models, can be prevented by 'locking' the registration process.
+ * This locking can be implemented either through the TSEM control
+ * plane or by specifying the 'tsem_locked' kernel command-line
+ * parameter.
  */
 
 #include "tsem.h"
