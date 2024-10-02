@@ -29,6 +29,7 @@
 #include "tsem.h"
 
 static struct kmem_cache *event_cachep;
+
 static bool created_inode(struct tsem_inode *tsip)
 {
 	return tsip->created && tsip->creator == tsem_context(current)->id;
@@ -71,6 +72,7 @@ static int register_inode_create(struct inode *dir, u64 instance,
 	p = strrchr(pathname, '/');
 	if (!p)
 		return -EINVAL;
+	++p;
 
 	if (tsem_context(current)->id) {
 		retn = register_directory(tsip);
@@ -82,7 +84,9 @@ static int register_inode_create(struct inode *dir, u64 instance,
 	if (!tio)
 		return -ENOMEM;
 
-	tio->pathname = ++p;
+	tio->pathname = __getname();
+	strscpy(tio->pathname, p, PATH_MAX);
+
 	tio->creator = tsem_context(current)->id;
 	tio->instance = instance;
 	memcpy(tio->owner, tsem_task(current)->task_id, tsem_digestsize());

@@ -915,7 +915,10 @@ static int tsem_inode_init_security(struct inode *inode, struct inode *dir,
 		tsip->creator = retn->creator;
 		tsip->instance = retn->instance;
 		memcpy(tsip->owner, retn->owner, tsem_digestsize());
+
 		list_del(&retn->list);
+		__putname(retn->pathname);
+		kfree(retn);
 	}
 	mutex_unlock(&tsem_inode(dir)->create_mutex);
 
