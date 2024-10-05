@@ -606,6 +606,9 @@ struct tsem_context {
 	struct mutex inode_mutex;
 	struct list_head inode_list;
 
+	struct mutex mount_mutex;
+	struct list_head mount_list;
+
 	unsigned int magazine_size;
 	spinlock_t magazine_lock;
 	unsigned long *magazine_index;
@@ -808,9 +811,6 @@ struct tsem_model {
 
 	struct mutex pseudonym_mutex;
 	struct list_head pseudonym_list;
-
-	struct mutex mount_mutex;
-	struct list_head mount_list;
 
 	unsigned int magazine_size;
 	spinlock_t magazine_lock;
