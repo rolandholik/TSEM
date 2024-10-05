@@ -205,10 +205,11 @@ static char *get_path_dentry(const struct dentry *dentry)
 
 static void _fill_mount_path(struct tsem_inode *tsip, struct tsem_path *path)
 {
+	struct tsem_context *ctx = tsem_context(current);
 	struct tsem_inode_instance *entry, *retn = NULL;
 
-	mutex_lock(&tsem_model(current)->mount_mutex);
-	list_for_each_entry(entry, &tsem_model(current)->mount_list, list) {
+	mutex_lock(&ctx->mount_mutex);
+	list_for_each_entry(entry, &ctx->mount_list, list) {
 		if (!strcmp(entry->pathname, path->pathname)) {
 			retn = entry;
 			break;
@@ -221,13 +222,13 @@ static void _fill_mount_path(struct tsem_inode *tsip, struct tsem_path *path)
 		path->instance = retn->instance;
 		memcpy(path->owner, retn->owner, tsem_digestsize());
 	}
-	mutex_unlock(&tsem_model(current)->mount_mutex);
+	mutex_unlock(&ctx->mount_mutex);
 }
 
 static int fill_path(const struct path *in, struct tsem_path *path)
 {
 	int retn;
-	struct tsem_model *model = tsem_model(current);
+	struct tsem_context *ctx = tsem_context(current);
 	struct tsem_inode *tsip = tsem_inode(d_backing_inode(in->dentry));
 
 	if (created_inode(tsip)) {
@@ -247,7 +248,7 @@ static int fill_path(const struct path *in, struct tsem_path *path)
 			retn = PTR_ERR(path->pathname);
 	}
 
-	if (model && !list_empty(&model->mount_list))
+	if (!list_empty(&ctx->mount_list))
 		_fill_mount_path(tsip, path);
 
  done:
@@ -1086,7 +1087,7 @@ static int get_kernel_file(struct tsem_kernel_args *args)
 static int get_sb_mount(struct tsem_sb_args *args)
 {
 	int retn = -ENOMEM;
-	struct tsem_model *model = tsem_model(current);
+	struct tsem_context *ctx = tsem_context(current);
 	struct tsem_inode_instance *tsio = NULL;
 	const char *dev_name = args->in.dev_name;
 	const char *type = args->in.type;
@@ -1110,21 +1111,23 @@ static int get_sb_mount(struct tsem_sb_args *args)
 	if (retn)
 		goto done;
 
-	if (model && args->out.path.created) {
+	if (args->out.path.created) {
 		tsio = kzalloc(sizeof(*tsio), GFP_KERNEL);
 		if (!tsio) {
 			retn = -ENOMEM;
 			goto done;
 		}
 
+		tsio->pathname = __getname();
+		strscpy(tsio->pathname, args->out.path.pathname, PATH_MAX);
+
 		tsio->creator = args->out.path.creator;
 		tsio->instance = args->out.path.instance;
-		tsio->pathname = args->out.path.pathname;
 		memcpy(tsio->owner, args->out.path.owner, tsem_digestsize());
 
-		mutex_lock(&model->mount_mutex);
-		list_add_tail(&tsio->list, &model->mount_list);
-		mutex_unlock(&model->mount_mutex);
+		mutex_lock(&ctx->mount_mutex);
+		list_add_tail(&tsio->list, &ctx->mount_list);
+		mutex_unlock(&ctx->mount_mutex);
 	}
 
  done:

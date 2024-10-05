@@ -95,9 +95,6 @@ static struct tsem_model root_model = {
 
 	.pseudonym_mutex = __MUTEX_INITIALIZER(root_model.pseudonym_mutex),
 	.pseudonym_list = LIST_HEAD_INIT(root_model.pseudonym_list),
-
-	.mount_mutex = __MUTEX_INITIALIZER(root_model.mount_mutex),
-	.mount_list = LIST_HEAD_INIT(root_model.mount_list)
 };
 
 static struct tsem_context root_context;
@@ -2396,6 +2393,9 @@ static int __init tsem_init(void)
 
 	mutex_init(&ctx->inode_mutex);
 	INIT_LIST_HEAD(&ctx->inode_list);
+
+	mutex_init(&ctx->mount_mutex);
+	INIT_LIST_HEAD(&ctx->mount_list);
 
 	root_context.ops = &tsem_model0_ops;
 	root_context.model = &root_model;

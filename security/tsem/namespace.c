@@ -209,6 +209,7 @@ static void wq_put(struct work_struct *work)
 {
 	struct tsem_context *ctx;
 	struct tsem_inode_entry *ie, *tmp_ie;
+	struct tsem_inode_instance *is, *tmp_is;
 
 	ctx = container_of(work, struct tsem_context, work);
 
@@ -219,6 +220,12 @@ static void wq_put(struct work_struct *work)
 		kfree(ie);
 	}
 	mutex_unlock(&ctx->inode_mutex);
+
+	list_for_each_entry_safe(is, tmp_is, &ctx->mount_list, list) {
+		list_del(&is->list);
+		__putname(is->pathname);
+		kfree(is);
+	}
 
 	if (ctx->external) {
 		mutex_lock(&context_id_mutex);
@@ -439,6 +446,9 @@ int tsem_ns_create(const enum tsem_control_type type, const char *digest,
 	mutex_init(&new_ctx->inode_mutex);
 	INIT_LIST_HEAD(&new_ctx->inode_list);
 
+	mutex_init(&new_ctx->mount_mutex);
+	INIT_LIST_HEAD(&new_ctx->mount_list);
+
 	if (ns == TSEM_NS_CURRENT)
 		new_ctx->use_current_ns = true;
 	memcpy(new_ctx->actions, tsk->context->actions,
@@ -522,6 +532,9 @@ int tsem_ns_export_root(unsigned int magazine_size)
 
 		mutex_init(&new_ctx->inode_mutex);
 		INIT_LIST_HEAD(&new_ctx->inode_list);
+
+		mutex_init(&new_ctx->mount_mutex);
+		INIT_LIST_HEAD(&new_ctx->mount_list);
 
 		tsk->context = new_ctx;
 	}
