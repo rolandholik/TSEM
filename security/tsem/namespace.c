@@ -223,7 +223,7 @@ static void wq_put(struct work_struct *work)
 
 	list_for_each_entry_safe(is, tmp_is, &ctx->mount_list, list) {
 		list_del(&is->list);
-		__putname(is->pathname);
+		kfree(is->pathname);
 		kfree(is);
 	}
 
