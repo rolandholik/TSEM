@@ -1118,8 +1118,9 @@ static int get_sb_mount(struct tsem_sb_args *args)
 			goto done;
 		}
 
-		tsio->pathname = __getname();
-		strscpy(tsio->pathname, args->out.path.pathname, PATH_MAX);
+		tsio->pathname = kstrdup(args->out.path.pathname, GFP_KERNEL);
+		strscpy(tsio->pathname, args->out.path.pathname,
+			strlen(args->out.path.pathname) + 1);
 
 		tsio->creator = args->out.path.creator;
 		tsio->instance = args->out.path.instance;
