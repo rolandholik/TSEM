@@ -908,6 +908,7 @@ static int tsem_inode_init_security(struct inode *inode, struct inode *dir,
 	}
 
 	if (retn) {
+		tsip->backing = ERR_PTR(-ENOENT);
 		tsip->created = true;
 		tsip->creator = retn->creator;
 		tsip->instance = retn->instance;
