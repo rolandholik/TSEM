@@ -2146,6 +2146,8 @@ struct tsem_inode {
 	struct mutex digest_mutex;
 	struct list_head digest_list;
 
+	struct tsem_inode_instance *backing;
+
 	enum tsem_inode_state status;
 	bool created;
 	u64 creator;

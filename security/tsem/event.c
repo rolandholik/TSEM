@@ -217,18 +217,20 @@ static void _fill_mount_path(struct tsem_inode *tsip, struct tsem_path *path)
 	}
 
 	if (retn) {
+		tsip->backing = retn;
 		path->created = true;
 		path->creator = retn->creator;
 		path->instance = retn->instance;
 		memcpy(path->owner, retn->owner, tsem_digestsize());
 	}
+	else
+		tsip->backing = NULL;
 	mutex_unlock(&ctx->mount_mutex);
 }
 
 static int fill_path(const struct path *in, struct tsem_path *path)
 {
 	int retn;
-	struct tsem_context *ctx = tsem_context(current);
 	struct tsem_inode *tsip = tsem_inode(d_backing_inode(in->dentry));
 
 	if (created_inode(tsip)) {
@@ -248,8 +250,17 @@ static int fill_path(const struct path *in, struct tsem_path *path)
 			retn = PTR_ERR(path->pathname);
 	}
 
-	if (!list_empty(&ctx->mount_list))
+	if (list_empty(&tsem_context(current)->mount_list))
+		return retn;
+
+	if (PTR_ERR_OR_ZERO(tsip->backing))
 		_fill_mount_path(tsip, path);
+	else if (tsip->backing) {
+		path->created = true;
+		path->creator = tsip->backing->creator;
+		path->instance = tsip->backing->instance;
+		memcpy(path->owner, tsip->backing->owner, tsem_digestsize());
+	}
 
  done:
 	return retn;
@@ -1092,6 +1103,7 @@ static int get_sb_mount(struct tsem_sb_args *args)
 	const char *dev_name = args->in.dev_name;
 	const char *type = args->in.type;
 	const struct path *path = args->in.path;
+	struct tsem_inode_instance *entry, *found_entry = NULL;
 
 	memset(&args->out, '\0', sizeof(args->out));
 
@@ -1111,7 +1123,29 @@ static int get_sb_mount(struct tsem_sb_args *args)
 	if (retn)
 		goto done;
 
-	if (args->out.path.created) {
+	if (!strlen(dev_name)) {
+		mutex_lock(&ctx->mount_mutex);
+		list_for_each_entry(entry, &ctx->mount_list, list) {
+			if (!strcmp(entry->pathname,
+				    args->out.path.pathname)) {
+				found_entry = entry;
+				break;
+			}
+		}
+
+		if (found_entry) {
+			args->out.path.created = true;
+			args->out.path.creator = found_entry->creator;
+			args->out.path.instance = found_entry->instance;
+			memcpy(args->out.path.owner, found_entry->owner,
+			       tsem_digestsize());
+		}
+
+		mutex_unlock(&ctx->mount_mutex);
+		goto done;
+	}
+
+	if (list_empty(&ctx->mount_list) || args->out.path.created) {
 		tsio = kzalloc(sizeof(*tsio), GFP_KERNEL);
 		if (!tsio) {
 			retn = -ENOMEM;
