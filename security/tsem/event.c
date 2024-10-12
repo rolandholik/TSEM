@@ -1176,11 +1176,31 @@ static int get_sb_mount(struct tsem_sb_args *args)
 
 static int get_sb_umount(struct tsem_sb_args *args)
 {
+	int retn;
+	struct tsem_context *ctx = tsem_context(current);
 	struct dentry *dentry = args->in.dentry;
+	struct tsem_inode_instance *entry, *found = NULL;
 
 	memset(&args->out, '\0', sizeof(args->out));
+	retn = fill_dentry(dentry, &args->out.dentry);
 
-	return fill_dentry(dentry, &args->out.dentry);
+	mutex_lock(&ctx->mount_mutex);
+	list_for_each_entry(entry, &ctx->mount_list, list) {
+		if (!strcmp(entry->pathname,
+			    args->out.dentry.path.pathname)) {
+			found = entry;
+			break;
+		}
+	}
+
+	if (found) {
+		list_del(&found->list);
+		kfree(found->pathname);
+		kfree(found);
+	}
+	mutex_unlock(&ctx->mount_mutex);
+
+	return retn;
 }
 
 static int get_sb_remount(struct tsem_sb_args *args)
