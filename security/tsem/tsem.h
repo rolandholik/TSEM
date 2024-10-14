@@ -1998,8 +1998,9 @@ struct tsem_event {
 	void (*event_free)(struct tsem_event *ep);
 
 	enum tsem_event_type event;
-	u64 context;
 	bool locked;
+	bool terminate_event;
+	u64 context;
 	u64 instance;
 	u64 p_instance;
 	u64 timestamp;
