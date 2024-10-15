@@ -333,6 +333,8 @@ static int dispatch_event(struct tsem_event *ep)
 	}
 
 	retn = tsem_event_init(ep);
+	if (ep->terminate_event)
+		goto done;
 	if (retn > 0) {
 		if (!tsem_context(current)->external)
 			retn = tsem_model_event(ep);
@@ -486,23 +488,16 @@ static int tsem_file_receive(struct file *file)
 
 static int tsem_task_alloc(struct task_struct *new, unsigned long flags)
 {
-	struct tsem_task *old_task = tsem_task(current);
-	struct tsem_task *new_task = tsem_task(new);
+	struct tsem_event *ep;
 
-	new_task->instance = old_task->instance;
-	new_task->p_instance = old_task->instance;
+	ep = tsem_event_allocate(TSEM_INTERNAL_TASK_ALLOC, NOLOCK);
+	if (!ep)
+		return -ENOMEM;
 
-	new_task->trust_status = old_task->trust_status;
-	new_task->context = old_task->context;
-	memcpy(new_task->task_id, old_task->task_id, HASH_MAX_DIGESTSIZE);
-	memcpy(new_task->p_task_id, old_task->task_id, HASH_MAX_DIGESTSIZE);
+	ep->CELL.task_args.task = new;
+	ep->CELL.task_args.flags = flags;
 
-	if (!new_task->context->id)
-		return 0;
-
-	kref_get(&new_task->context->kref);
-	memcpy(new_task->task_key, old_task->task_key, HASH_MAX_DIGESTSIZE);
-	return 0;
+	return dispatch_event(ep);
 }
 
 static void tsem_task_free(struct task_struct *task)

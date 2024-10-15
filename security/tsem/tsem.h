@@ -156,7 +156,8 @@ enum tsem_event_type {
 	TSEM_CAPABLE,
 	TSEM_CAPGET,
 	TSEM_CAPSET,
-	TSEM_EVENT_CNT
+	TSEM_EVENT_CNT,
+	TSEM_INTERNAL_TASK_ALLOC
 };
 
 /**
@@ -1416,6 +1417,21 @@ struct tsem_sb_args {
 };
 
 /**
+ * struct tsem_task_args - TSEM task arguments.
+ * @task: A pointer to a task structure that is being acted on.
+ * @flags: A flags value that is passed to the security_task_alloc
+ *	   function.
+ *
+ * This structure is used to encapsulate and retain the arguments
+ * provided to the tsem_task_alloc and tsem_task_free security event
+ * handlers.
+ */
+struct tsem_task_args {
+	struct task_struct *task;
+	unsigned long flags;
+};
+
+/**
  * struct tsem_task_kill_args - TSEM task kill arguments.
  * @u.value: The signed representation of an integer argument.
  * @u.resource: The unsigned representation of an integer argument.
@@ -2024,6 +2040,7 @@ struct tsem_event {
 		struct tsem_mmap_file_args mmap_file;
 		struct tsem_socket_args socket;
 		struct tsem_kernel_args kernel;
+		struct tsem_task_args task_args;
 		struct tsem_task_kill_args task_kill;
 		struct tsem_task_prlimit_args task_prlimit;
 		struct tsem_task_prctl_args task_prctl;

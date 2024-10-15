@@ -1373,6 +1373,27 @@ static int get_quotaon(struct tsem_quota_args *args)
 	return fill_dentry(dentry, &args->out.dentry);
 }
 
+static void task_alloc(struct tsem_task_args *args)
+{
+	struct tsem_task *old_task = tsem_task(current);
+	struct tsem_task *new_task = tsem_task(args->task);
+
+	new_task->instance = old_task->instance;
+	new_task->p_instance = old_task->instance;
+
+	new_task->trust_status = old_task->trust_status;
+	new_task->context = old_task->context;
+	memcpy(new_task->task_id, old_task->task_id, HASH_MAX_DIGESTSIZE);
+	memcpy(new_task->p_task_id, old_task->task_id, HASH_MAX_DIGESTSIZE);
+
+	if (!new_task->context->id)
+		return;
+
+	kref_get(&new_task->context->kref);
+	memcpy(new_task->task_key, old_task->task_key, HASH_MAX_DIGESTSIZE);
+	return;
+}
+
 static void event_free(struct tsem_event *ep)
 {
 	switch (ep->event) {
@@ -1663,6 +1684,12 @@ int tsem_event_init(struct tsem_event *ep)
 	int retn = 1;
 	u64 timestamp = ktime_get_boottime_ns();
 	struct tsem_task *task = tsem_task(current);
+
+	if (ep->event == TSEM_INTERNAL_TASK_ALLOC) {
+		task_alloc(&ep->CELL.task_args);
+		ep->terminate_event = true;
+		return 0;
+	}
 
 	ep->pid = task_pid_nr(current);
 	ep->context = tsem_context(current)->id;
