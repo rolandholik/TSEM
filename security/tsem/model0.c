@@ -16,6 +16,7 @@ static bool event_bypasses[TSEM_EVENT_CNT];
 const struct tsem_context_ops tsem_model0_ops = {
 	.name = "model0",
 	.bypasses = event_bypasses,
+	.init = tsem_event_init,
 	.generate = tsem_event_generate,
 	.map = tsem_map_event
 };

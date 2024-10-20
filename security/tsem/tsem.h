@@ -642,6 +642,7 @@ struct tsem_context {
 struct tsem_context_ops {
 	const char *name;
 	const bool *bypasses;
+	int (*init)(struct tsem_event *ep);
 	int (*generate)(struct tsem_event *ep);
 	int (*map)(struct tsem_event *ep);
 };
