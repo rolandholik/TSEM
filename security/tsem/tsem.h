@@ -2258,6 +2258,7 @@ extern void tsem_fs_show_field(struct seq_file *c, const char *field);
 extern void tsem_fs_show_key(struct seq_file *c, char *term, char *key,
 			     char *fmt, ...);
 extern int tsem_fs_init(void);
+extern struct dentry *tsem_fs_register(const char *dir);
 
 extern struct tsem_model *tsem_model_allocate(size_t size);
 extern void tsem_model_free(struct tsem_context *ctx);

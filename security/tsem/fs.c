@@ -2302,3 +2302,9 @@ int __init tsem_fs_init(void)
 
 	return retn;
 }
+
+struct dentry *tsem_fs_register(const char *dir)
+{
+	return securityfs_create_dir(dir, internal_tma);
+}
+EXPORT_SYMBOL_GPL(tsem_fs_register);
