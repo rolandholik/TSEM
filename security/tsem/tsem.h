@@ -628,8 +628,8 @@ struct tsem_context {
  * @bypass: A pointer to an array of booleans of size TSEM_EVENT_CNT
  *	    that specify whether or not a security event handler should
  *	    be bypassed.
- * @event_init: A pointer to the function that implements initialization
- *		of the characteristics of the security event.
+ * @generate: A pointer to the function that implements initialization
+ *	      of the CELL characteristics of the event.
  * @map: A pointer to the function that implements the mapping
  *	 of security event characteristics into a security
  *	 coefficient.
@@ -642,7 +642,7 @@ struct tsem_context {
 struct tsem_context_ops {
 	const char *name;
 	const bool *bypasses;
-	int (*init)(struct tsem_event *ep);
+	int (*generate)(struct tsem_event *ep);
 	int (*map)(struct tsem_event *ep);
 };
 
