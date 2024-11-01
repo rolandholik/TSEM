@@ -1382,7 +1382,6 @@ static void task_alloc(struct tsem_task_args *args)
 	new_task->p_instance = old_task->instance;
 
 	new_task->trust_status = old_task->trust_status;
-	new_task->context = old_task->context;
 	memcpy(new_task->task_id, old_task->task_id, HASH_MAX_DIGESTSIZE);
 	memcpy(new_task->p_task_id, old_task->task_id, HASH_MAX_DIGESTSIZE);
 
