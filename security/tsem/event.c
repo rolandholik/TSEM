@@ -1684,7 +1684,7 @@ int tsem_event_init(struct tsem_event *ep)
 	u64 timestamp = ktime_get_boottime_ns();
 	struct tsem_task *task = tsem_task(current);
 
-	if (ep->event == TSEM_INTERNAL_TASK_ALLOC) {
+	if (ep->event == TSEM_TASK_ALLOC) {
 		task_alloc(&ep->CELL.task_args);
 		ep->terminate_event = true;
 		return 0;

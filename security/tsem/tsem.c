@@ -217,7 +217,8 @@ const char * const tsem_names[TSEM_EVENT_CNT] = {
 	"ptrace_access_check",		/* TSEM_PTRACE_ACCESS_CHECK */
 	"capable",			/* TSEM_CAPABLE */
 	"capget",			/* TSEM_CAPGET */
-	"capset"			/* TSEM_CAPSET */
+	"capset",			/* TSEM_CAPSET */
+	"task_alloc"			/* TSEM_TASK_ALLOC */
 };
 
 static const unsigned long pseudo_filesystems[] = {
@@ -495,7 +496,7 @@ static int tsem_task_alloc(struct task_struct *new, unsigned long flags)
 
 	tsem_task(new)->context = tsem_task(current)->context;
 
-	ep = tsem_event_allocate(TSEM_INTERNAL_TASK_ALLOC, NOLOCK);
+	ep = tsem_event_allocate(TSEM_TASK_ALLOC, NOLOCK);
 	if (!ep)
 		return -ENOMEM;
 
