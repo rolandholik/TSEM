@@ -332,7 +332,10 @@ static int dispatch_event(struct tsem_event *ep)
 		goto done;
 	}
 
-	retn = tsem_context(current)->ops->init(ep);
+	if (tsem_context(current)->ops->init)
+		retn = tsem_context(current)->ops->init(ep);
+	else
+		retn = tsem_event_init(ep);
 	if (ep->terminate_event)
 		goto done;
 	if (retn > 0) {
