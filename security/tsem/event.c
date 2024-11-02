@@ -1726,9 +1726,6 @@ int tsem_event_init(struct tsem_event *ep)
 
 	get_COE(&ep->COE);
 
-	if (ep->event == TSEM_BPRM_COMMITTED_CREDS)
-		return tsem_event_generate(ep);
-
 	if (!ep->no_params)
 		retn = tsem_context(current)->ops->generate(ep);
 
