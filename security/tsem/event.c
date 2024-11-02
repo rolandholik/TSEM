@@ -30,6 +30,8 @@
 
 static struct kmem_cache *event_cachep;
 
+static atomic64_t task_instance;
+
 static bool created_inode(struct tsem_inode *tsip)
 {
 	return tsip->created && tsip->creator == tsem_context(current)->id;
@@ -1665,6 +1667,19 @@ int tsem_event_generate(struct tsem_event *ep)
 }
 EXPORT_SYMBOL_GPL(tsem_event_generate);
 
+static void bprm_committed_creds(struct tsem_event *ep)
+{
+	u8 task_id[HASH_MAX_DIGESTSIZE];
+
+	if (tsem_event_generate(ep) < 0 )
+		return;
+
+	if (tsem_map_task(ep, task_id))
+		memset(task_id, 0xff, sizeof(task_id));
+	memcpy(tsem_task(current)->task_id, task_id, tsem_digestsize());
+	tsem_task(current)->instance = atomic64_inc_return(&task_instance);
+}
+
 /**
  * tsem_event_init() - Initialize a security event description structure.
  * @ep: A pointer to the tsem_event structure that describes the
@@ -1684,10 +1699,20 @@ int tsem_event_init(struct tsem_event *ep)
 	u64 timestamp = ktime_get_boottime_ns();
 	struct tsem_task *task = tsem_task(current);
 
-	if (ep->event == TSEM_TASK_ALLOC) {
+	switch (ep->event) {
+	case TSEM_TASK_ALLOC:
 		task_alloc(&ep->CELL.task_args);
 		ep->terminate_event = true;
 		return 0;
+		break;
+
+	case TSEM_BPRM_COMMITTED_CREDS:
+		bprm_committed_creds(ep);
+		ep->terminate_event = true;
+		return 0;
+		break;
+	default:
+		break;
 	}
 
 	ep->pid = task_pid_nr(current);

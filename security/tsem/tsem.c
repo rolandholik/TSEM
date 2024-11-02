@@ -78,8 +78,6 @@ enum tsem_action_type tsem_root_actions[TSEM_EVENT_CNT] = {
 	TSEM_ACTION_EPERM	/* Undefined. */
 };
 
-static atomic64_t task_instance;
-
 static struct tsem_model root_model = {
 	.point_lock = __SPIN_LOCK_INITIALIZER(root_model.point_lock),
 	.point_list = LIST_HEAD_INIT(root_model.point_list),
@@ -863,16 +861,19 @@ static int tsem_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 
 static void tsem_bprm_committed_creds(const struct linux_binprm *bprm)
 {
-	u8 task_id[HASH_MAX_DIGESTSIZE];
+	struct tsem_event *ep;
 
 	if (static_branch_unlikely(&tsem_not_ready))
 		return;
 
-	if (tsem_map_task(bprm->file, task_id))
-		memset(task_id, 0xff, sizeof(task_id));
+	ep = tsem_event_allocate(TSEM_BPRM_COMMITTED_CREDS, NOLOCK);
+	if (!ep) {
+		pr_warn("tsem: Unable to allocate event for %s\n", __func__); 
+		return;
+	}
 
-	tsem_task(current)->instance = atomic64_inc_return(&task_instance);
-	memcpy(tsem_task(current)->task_id, task_id, tsem_digestsize());
+	ep->CELL.file.in.file = bprm->file;
+	dispatch_event(ep);
 }
 
 static int tsem_inode_alloc_security(struct inode *inode)

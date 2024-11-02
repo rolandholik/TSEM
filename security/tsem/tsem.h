@@ -2290,7 +2290,7 @@ extern int tsem_export_magazine_allocate(struct tsem_external *ext,
 extern void tsem_export_magazine_free(struct tsem_external *ext);
 extern int tsem_export_cache_init(void);
 
-extern int tsem_map_task(struct file *file, u8 *mapping);
+extern int tsem_map_task(struct tsem_event *ep, u8 *mapping);
 extern int tsem_map_event(struct tsem_event *ep);
 
 extern struct tsem_event *tsem_event_allocate(enum tsem_event_type event,

@@ -1484,36 +1484,23 @@ static int map_event(struct tsem_event *ep, u8 *p_task_id, u8 *task_id,
 
 /**
  * tsem_map_task() - Create the task identity description structure.
- * @file: A pointer to the file structure defining the executable.
+ * @ep: A pointer to the structure describing the event.
  * @task_id: Pointer to the buffer that the task id will be copied to.
  *
- * This function creates the security event state point that will be used
- * as the task identifier for the generation of security state points
- * that are created by the process that task identifier is assigned to.
+ * This function creates the security state coefficient that will be used
+ * as the task identifier for the generation of security coefficients
+ * that are created by the process the task identifier is assigned to.
  *
  * Return: This function returns 0 if the mapping was successfully
  *	   created and an error value otherwise.
  */
-int tsem_map_task(struct file *file, u8 *task_id)
+int tsem_map_task(struct tsem_event *ep, u8 *task_id)
 {
-	int retn;
 	u8 null_taskid[HASH_MAX_DIGESTSIZE];
-	struct tsem_event *ep;
 
-	ep = tsem_event_allocate(TSEM_BPRM_COMMITTED_CREDS, false);
-	if (!ep)
-		return -ENOMEM;
-
-	ep->CELL.file.in.file = file;
-	retn = tsem_event_init(ep);
-	if (retn > 0) {
-		memset(null_taskid, '\0', tsem_digestsize());
-		retn = map_event(ep, tsem_task(current)->p_task_id,
-				 null_taskid, task_id);
-	}
-
-	tsem_event_put(ep);
-	return retn;
+	memset(null_taskid, '\0', tsem_digestsize());
+	return map_event(ep, tsem_task(current)->p_task_id, null_taskid,
+			 task_id);
 }
 
 /**
