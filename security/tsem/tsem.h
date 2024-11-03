@@ -643,6 +643,7 @@ struct tsem_context_ops {
 	const char *name;
 	const bool *bypasses;
 	int (*init)(struct tsem_event *ep);
+	int (*model_init)(void);
 	int (*generate)(struct tsem_event *ep);
 	int (*map)(struct tsem_event *ep);
 };
@@ -2268,7 +2269,7 @@ extern int tsem_model_load_point(u8 *point);
 extern int tsem_model_load_pseudonym(u8 *mapping);
 extern int tsem_model_has_pseudonym(struct tsem_inode *tsip, char *pathname);
 extern void tsem_model_load_base(u8 *mapping);
-extern int tsem_model_add_aggregate(void);
+extern int tsem_model_init(void);
 extern void tsem_model_compute_state(void);
 extern void tsem_model_magazine_free(struct tsem_model *model);
 extern int tsem_model_cache_init(struct tsem_model *model, size_t size);

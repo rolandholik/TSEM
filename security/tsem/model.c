@@ -519,7 +519,7 @@ int tsem_model_load_point(u8 *point)
 		return retn;
 
 	if (!ctx->model->have_aggregate) {
-		retn = tsem_model_add_aggregate();
+		retn = tsem_model_init();
 		if (retn)
 			return retn;
 
@@ -583,17 +583,17 @@ void tsem_model_load_base(u8 *mapping)
 }
 
 /**
- * tesm_model_add_aggregate() - Add the hardware aggregate to a model.
+ * tesm_model_init() - Add the hardware aggregate to a TSEM model.
  *
- * This function adds the hardware aggregate value to an internally
- * modeled security domain.
+ * This function adds the hardware aggregate value for an internally
+ * modeled security namespace.
  *
  * Return: If an error occurs during the injection of the aggregate
  *	   value into the model a negative error value is returned.
  *	   A return value of zero indicates the aggregate was
  *	   successfully added.
  */
-int tsem_model_add_aggregate(void)
+int tsem_model_init(void)
 {
 	int retn;
 	struct tsem_event *ep;

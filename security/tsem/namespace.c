@@ -472,8 +472,12 @@ int tsem_ns_create(const enum tsem_control_type type, const char *digest,
 		tsk->context = new_ctx;
 		if (type == TSEM_CONTROL_EXTERNAL)
 			retn = tsem_export_aggregate();
-		if (type == TSEM_CONTROL_INTERNAL)
-			retn = tsem_model_add_aggregate();
+		if (type == TSEM_CONTROL_INTERNAL) {
+			if (tsk->context->ops->model_init)
+				retn = tsk->context->ops->model_init();
+			else
+				retn = tsem_model_init();
+		}
 	}
 
 	mutex_unlock(&context_id_mutex);

@@ -2343,7 +2343,7 @@ static int __init set_ready(void)
 	if (retn)
 		goto done;
 
-	retn = tsem_model_add_aggregate();
+	retn = tsem_model_init();
 	if (retn)
 		goto done;
 
