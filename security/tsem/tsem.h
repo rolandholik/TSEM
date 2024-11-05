@@ -460,6 +460,7 @@ struct tsem_task {
 	u8 p_task_id[HASH_MAX_DIGESTSIZE];
 	u8 task_key[HASH_MAX_DIGESTSIZE];
 	struct tsem_context *context;
+	void *private;
 };
 
 /**
