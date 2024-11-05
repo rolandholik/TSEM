@@ -490,6 +490,7 @@ static int tsem_file_receive(struct file *file)
 
 static int tsem_task_alloc(struct task_struct *new, unsigned long flags)
 {
+	int retn;
 	struct tsem_event *ep;
 
 	tsem_task(new)->context = tsem_task(current)->context;
@@ -501,7 +502,10 @@ static int tsem_task_alloc(struct task_struct *new, unsigned long flags)
 	ep->CELL.task_args.task = new;
 	ep->CELL.task_args.flags = flags;
 
-	return dispatch_event(ep);
+	retn = dispatch_event(ep);
+	if (!retn)
+		kref_get(&tsem_task(new)->context->kref);
+	return retn;
 }
 
 static void tsem_task_free(struct task_struct *task)

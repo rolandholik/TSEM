@@ -1387,11 +1387,9 @@ static void task_alloc(struct tsem_task_args *args)
 	memcpy(new_task->task_id, old_task->task_id, HASH_MAX_DIGESTSIZE);
 	memcpy(new_task->p_task_id, old_task->task_id, HASH_MAX_DIGESTSIZE);
 
-	if (!new_task->context->id)
-		return;
-
-	kref_get(&new_task->context->kref);
-	memcpy(new_task->task_key, old_task->task_key, HASH_MAX_DIGESTSIZE);
+	if (new_task->context->id)
+		memcpy(new_task->task_key, old_task->task_key,
+		       HASH_MAX_DIGESTSIZE);
 	return;
 }
 
