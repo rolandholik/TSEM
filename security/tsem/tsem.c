@@ -73,6 +73,7 @@ struct lsm_blob_sizes tsem_blob_sizes __ro_after_init = {
 	.lbs_ipc = sizeof(struct tsem_ipc),
 	.lbs_xattr_count = 1
 };
+EXPORT_SYMBOL_GPL(tsem_blob_sizes);
 
 enum tsem_action_type tsem_root_actions[TSEM_EVENT_CNT] = {
 	TSEM_ACTION_EPERM	/* Undefined. */
