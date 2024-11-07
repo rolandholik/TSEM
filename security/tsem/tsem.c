@@ -217,7 +217,8 @@ const char * const tsem_names[TSEM_EVENT_CNT] = {
 	"capable",			/* TSEM_CAPABLE */
 	"capget",			/* TSEM_CAPGET */
 	"capset",			/* TSEM_CAPSET */
-	"task_alloc"			/* TSEM_TASK_ALLOC */
+	"task_alloc",			/* TSEM_TASK_ALLOC */
+	"bprm_check_security"		/* TSEM_BPRM_CHECK_SECURITY */
 };
 
 static const unsigned long pseudo_filesystems[] = {
@@ -879,6 +880,23 @@ static void tsem_bprm_committed_creds(const struct linux_binprm *bprm)
 
 	ep->CELL.file.in.file = bprm->file;
 	dispatch_event(ep);
+}
+
+static int tsem_bprm_check_security(struct linux_binprm *bprm)
+{
+	struct tsem_event *ep;
+
+	if (static_branch_unlikely(&tsem_not_ready))
+		return 0;
+	if (bypass_event(TSEM_BPRM_CHECK_SECURITY))
+		return 0;
+
+	ep = tsem_event_allocate(TSEM_BPRM_CHECK_SECURITY, NOLOCK);
+	if (!ep)
+		return -ENOMEM;
+
+	ep->CELL.bprm = bprm;
+	return dispatch_event(ep);
 }
 
 static int tsem_inode_alloc_security(struct inode *inode)
@@ -2193,6 +2211,7 @@ static struct security_hook_list tsem_hooks[] __ro_after_init = {
 	LSM_HOOK_INIT(capable, tsem_capable),
 
 	LSM_HOOK_INIT(bprm_committed_creds, tsem_bprm_committed_creds),
+	LSM_HOOK_INIT(bprm_check_security, tsem_bprm_check_security),
 
 	LSM_HOOK_INIT(inode_alloc_security, tsem_inode_alloc_security),
 	LSM_HOOK_INIT(inode_init_security, tsem_inode_init_security),

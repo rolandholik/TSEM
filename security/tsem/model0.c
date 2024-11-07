@@ -11,7 +11,9 @@
 
 #include "tsem.h"
 
-static bool event_bypasses[TSEM_EVENT_CNT];
+static bool event_bypasses[TSEM_EVENT_CNT] = {
+	[TSEM_BPRM_CHECK_SECURITY] = true
+};
 
 const struct tsem_context_ops tsem_model0_ops = {
 	.name = "model0",

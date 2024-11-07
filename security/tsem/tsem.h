@@ -157,6 +157,7 @@ enum tsem_event_type {
 	TSEM_CAPGET,
 	TSEM_CAPSET,
 	TSEM_TASK_ALLOC,
+	TSEM_BPRM_CHECK_SECURITY,
 	TSEM_EVENT_CNT
 };
 
@@ -2037,6 +2038,7 @@ struct tsem_event {
 	bool no_params;
 	union {
 		int value;
+		const struct linux_binprm *bprm;
 		struct tsem_netlink_args netlink;
 		struct tsem_inode_args inode;
 		struct tsem_file_args file;
