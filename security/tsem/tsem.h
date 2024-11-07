@@ -158,6 +158,7 @@ enum tsem_event_type {
 	TSEM_CAPSET,
 	TSEM_TASK_ALLOC,
 	TSEM_BPRM_CHECK_SECURITY,
+	TSEM_CRED_PREPARE,
 	TSEM_EVENT_CNT
 };
 
@@ -1892,6 +1893,22 @@ struct tsem_capability_args {
 };
 
 /**
+ * struct tsem_cred_prepare_args - TSEM arguments for cred_prepare handler.
+ * @new: The new credentials being proposed.
+ * @old: The original credentials being replaced.
+ * @gfp: The allocation flags.
+ *
+ * This structure encapsulates the arguements that are delivered by
+ * the security_prepare_creds event handler.  No support for retention
+ * of this is currently supported.
+ */
+struct tsem_cred_prepare_args {
+	struct cred *new;
+	const struct cred *old;
+	gfp_t gfp;
+};
+
+/**
  * struct tsem_event - TSEM security event description.
  * @kref: Reference count structure to track event lifetime.
  * @list: The list of security events in a security modeling namespace.
@@ -2058,7 +2075,7 @@ struct tsem_event {
 		struct tsem_bpf_args bpf;
 		struct tsem_ipc_args ipc;
 		struct tsem_capability_args capability;
-
+		struct tsem_cred_prepare_args cred_prepare;
 	} CELL;
 };
 
