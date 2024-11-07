@@ -12,6 +12,7 @@
 #include "tsem.h"
 
 static bool event_bypasses[TSEM_EVENT_CNT] = {
+	[TSEM_FILE_TRUNCATE] = true,
 	[TSEM_BPRM_CHECK_SECURITY] = true,
 	[TSEM_CRED_PREPARE] = true
 };

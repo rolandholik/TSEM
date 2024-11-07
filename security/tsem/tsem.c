@@ -149,6 +149,7 @@ const char * const tsem_names[TSEM_EVENT_CNT] = {
 	"file_lock",			/* TSEM_FILE_LOCK */
 	"file_fcntl",			/* TSEM_FILE_FCNTL */
 	"file_receive",			/* TSEM_FILE_RECEIVE */
+	"file_truncate",		/* TSEM_FILE_TRUNCATE */
 	"unix_stream_connect",		/* TSEM_UNIX_STREAM_CONNECT */
 	"unix_may_send",		/* TSEM_UNIX_MAY_SEND */
 	"socket_create",		/* TSEM_SOCKET_CREATE */
@@ -482,6 +483,23 @@ static int tsem_file_receive(struct file *file)
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_FILE_RECEIVE, NOLOCK);
+	if (!ep)
+		return -ENOMEM;
+
+	ep->CELL.file.in.file = file;
+	ep->CELL.file.in.pseudo_file = pseudo_filesystem(file_inode(file));
+
+	return dispatch_event(ep);
+}
+
+static int tsem_file_truncate(struct file *file)
+{
+	struct tsem_event *ep;
+
+	if (bypass_event(TSEM_FILE_TRUNCATE))
+		return 0;
+
+	ep = tsem_event_allocate(TSEM_FILE_TRUNCATE, NOLOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -2245,6 +2263,7 @@ static struct security_hook_list tsem_hooks[] __ro_after_init = {
 	LSM_HOOK_INIT(file_lock, tsem_file_lock),
 	LSM_HOOK_INIT(file_fcntl, tsem_file_fcntl),
 	LSM_HOOK_INIT(file_receive, tsem_file_receive),
+	LSM_HOOK_INIT(file_truncate, tsem_file_truncate),
 
 	LSM_HOOK_INIT(unix_stream_connect, tsem_unix_stream_connect),
 	LSM_HOOK_INIT(unix_may_send, tsem_unix_may_send),
