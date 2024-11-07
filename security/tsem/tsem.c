@@ -146,6 +146,7 @@ const char * const tsem_names[TSEM_EVENT_CNT] = {
 	"file_open",			/* TSEM_FILE_OPEN */
 	"mmap_file",			/* TSEM_MMAP_FILE */
 	"file_ioctl",			/* TSEM_FILE_IOCTL */
+	"file_ioctl_compat",		/* TSEM_FILE_IOCTL_COMPAT */
 	"file_lock",			/* TSEM_FILE_LOCK */
 	"file_fcntl",			/* TSEM_FILE_FCNTL */
 	"file_receive",			/* TSEM_FILE_RECEIVE */
@@ -426,6 +427,25 @@ static int tsem_file_ioctl(struct file *file, unsigned int cmd,
 		return 0;
 
 	ep = tsem_event_allocate(TSEM_FILE_IOCTL, NOLOCK);
+	if (!ep)
+		return -ENOMEM;
+
+	ep->CELL.file.cmd = cmd;
+	ep->CELL.file.in.file = file;
+	ep->CELL.file.in.pseudo_file = pseudo_filesystem(file_inode(file));
+
+	return dispatch_event(ep);
+}
+
+static int tsem_file_ioctl_compat(struct file *file, unsigned int cmd,
+				  unsigned long arg)
+{
+	struct tsem_event *ep;
+
+	if (bypass_event(TSEM_FILE_IOCTL_COMPAT))
+		return 0;
+
+	ep = tsem_event_allocate(TSEM_FILE_IOCTL_COMPAT, NOLOCK);
 	if (!ep)
 		return -ENOMEM;
 
@@ -2260,6 +2280,7 @@ static struct security_hook_list tsem_hooks[] __ro_after_init = {
 	LSM_HOOK_INIT(file_open, tsem_file_open),
 	LSM_HOOK_INIT(mmap_file, tsem_mmap_file),
 	LSM_HOOK_INIT(file_ioctl, tsem_file_ioctl),
+	LSM_HOOK_INIT(file_ioctl_compat, tsem_file_ioctl_compat),
 	LSM_HOOK_INIT(file_lock, tsem_file_lock),
 	LSM_HOOK_INIT(file_fcntl, tsem_file_fcntl),
 	LSM_HOOK_INIT(file_receive, tsem_file_receive),
