@@ -18,7 +18,8 @@ static bool event_bypasses[TSEM_EVENT_CNT] = {
 	[TSEM_CRED_PREPARE] = true,
 	[TSEM_PATH_TRUNCATE] = true,
 	[TSEM_PATH_UNLINK] = true,
-	[TSEM_PATH_MKDIR] = true
+	[TSEM_PATH_MKDIR] = true,
+	[TSEM_PATH_RMDIR] = true
 };
 
 const struct tsem_context_ops tsem_model0_ops = {
