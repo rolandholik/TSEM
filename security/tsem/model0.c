@@ -23,7 +23,8 @@ static bool event_bypasses[TSEM_EVENT_CNT] = {
 	[TSEM_PATH_SYMLINK] = true,
 	[TSEM_PATH_MKNOD] = true,
 	[TSEM_PATH_LINK] = true,
-	[TSEM_PATH_RENAME] = true
+	[TSEM_PATH_RENAME] = true,
+	[TSEM_PATH_CHMOD] = true
 };
 
 const struct tsem_context_ops tsem_model0_ops = {
