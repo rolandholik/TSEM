@@ -229,6 +229,7 @@ const char * const tsem_names[TSEM_EVENT_CNT] = {
 	"path_symlink",			/* TSEM_PATH_SYMLINK */
 	"path_mknod",			/* TSEM_PATH_MKNOD */
 	"path_link",			/* TSEM_PATH_LINK */
+	"path_rename"			/* TSEM_PATH_RENAME */
 };
 
 static const unsigned long pseudo_filesystems[] = {
@@ -2391,6 +2392,29 @@ static int tsem_path_link(struct dentry *old_dentry, const struct path *dir,
 
 	return dispatch_event(ep);
 }
+
+static int tsem_path_rename(const struct path *old_dir,
+			    struct dentry *old_dentry,
+			    const struct path *new_dir,
+			    struct dentry *new_dentry, unsigned int flags)
+{
+	struct tsem_event *ep;
+
+	if (bypass_event(TSEM_PATH_RENAME))
+		return 0;
+
+	ep = tsem_event_allocate(TSEM_PATH_RENAME, NOLOCK);
+	if (!ep)
+		return -ENOMEM;
+
+	ep->CELL.inode.path = old_dir;
+	ep->CELL.inode.new_path = new_dir;
+	ep->CELL.inode.flags = flags;
+	ep->CELL.inode.in.dentry = old_dentry;
+	ep->CELL.inode.in.new_dentry = new_dentry;
+
+	return dispatch_event(ep);
+}
 #endif
 
 static struct security_hook_list tsem_hooks[] __ro_after_init = {
@@ -2526,7 +2550,8 @@ static struct security_hook_list tsem_hooks[] __ro_after_init = {
 	LSM_HOOK_INIT(path_rmdir, tsem_path_rmdir),
 	LSM_HOOK_INIT(path_symlink, tsem_path_symlink),
 	LSM_HOOK_INIT(path_mknod, tsem_path_mknod),
-	LSM_HOOK_INIT(path_link, tsem_path_link)
+	LSM_HOOK_INIT(path_link, tsem_path_link),
+	LSM_HOOK_INIT(path_rename, tsem_path_rename)
 #endif
 };
 

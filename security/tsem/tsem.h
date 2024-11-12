@@ -168,6 +168,7 @@ enum tsem_event_type {
 	TSEM_PATH_SYMLINK,
 	TSEM_PATH_MKNOD,
 	TSEM_PATH_LINK,
+	TSEM_PATH_RENAME,
 	TSEM_EVENT_CNT
 };
 
@@ -1188,6 +1189,8 @@ struct tsem_inode_args {
 	umode_t mode;
 	dev_t dev;
 	const struct path *path;
+	const struct path *new_path;
+	unsigned int flags;
 
 	union {
 		struct {
