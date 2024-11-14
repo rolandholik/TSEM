@@ -565,6 +565,7 @@ static void tsem_task_free(struct task_struct *task)
 
 	if (ctx->id)
 		tsem_ns_put(ctx);
+	kfree(tsem_task(task)->private);
 }
 
 static int tsem_task_kill(struct task_struct *target,
