@@ -1218,6 +1218,7 @@ struct tsem_inode_args {
  * @cmd: The command argument for security handlers that take a
  *       command type arguement, ie. file_ioctl, file_fcntl, file_lock
  *	 handlers.
+ * @arg: The value of the argument that was supplied to the command.
  * @in.pseudo_file: A flag indicating that the file was on a
  *		    pseudo-filesystem and will not have a digest value.
  * @in.file: A structure to the file that will be modeled.
@@ -1233,6 +1234,7 @@ struct tsem_inode_args {
  */
 struct tsem_file_args {
 	unsigned int cmd;
+	unsigned long arg;
 
 	union {
 		struct {
