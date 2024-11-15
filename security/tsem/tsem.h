@@ -1426,6 +1426,7 @@ struct tsem_sb_args {
 
 	union {
 		struct {
+			struct vfsmount *mnt;
 			struct super_block *sb;
 			struct dentry *dentry;
 			const char *dev_name;

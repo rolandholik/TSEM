@@ -1433,7 +1433,7 @@ static	int tsem_sb_umount(struct vfsmount *mnt, int flags)
 		return -ENOMEM;
 
 	ep->CELL.sb.flags = flags;
-	ep->CELL.sb.in.dentry = mnt->mnt_root;
+	ep->CELL.sb.in.mnt = mnt;
 
 	return dispatch_event(ep);
 }

@@ -1180,7 +1180,7 @@ static int get_sb_umount(struct tsem_sb_args *args)
 {
 	int retn;
 	struct tsem_context *ctx = tsem_context(current);
-	struct dentry *dentry = args->in.dentry;
+	struct dentry *dentry = args->in.mnt->mnt_root;
 	struct tsem_inode_instance *entry, *found = NULL;
 
 	memset(&args->out, '\0', sizeof(args->out));
