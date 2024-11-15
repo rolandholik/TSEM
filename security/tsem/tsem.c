@@ -1154,7 +1154,7 @@ static int tsem_socket_connect(struct socket *sock, struct sockaddr *addr,
 	if (!ep)
 		return -ENOMEM;
 
-	ep->CELL.socket.in.socka = sock->sk;
+	ep->CELL.socket.in.socketa = sock;
 	ep->CELL.socket.in.addr = addr;
 	ep->CELL.socket.value = addr_len;
 
@@ -1174,7 +1174,7 @@ static int tsem_socket_bind(struct socket *sock, struct sockaddr *addr,
 	if (!ep)
 		return -ENOMEM;
 
-	ep->CELL.socket.in.socka = sock->sk;
+	ep->CELL.socket.in.socketa = sock;
 	ep->CELL.socket.in.addr = addr;
 	ep->CELL.socket.value = addr_len;
 
@@ -1200,7 +1200,6 @@ static int tsem_socket_accept(struct socket *sock, struct socket *newsock)
 static int tsem_socket_listen(struct socket *sock, int backlog)
 
 {
-	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
 
 	if (bypass_event(TSEM_SOCKET_LISTEN))
@@ -1211,7 +1210,7 @@ static int tsem_socket_listen(struct socket *sock, int backlog)
 		return -ENOMEM;
 
 	ep->CELL.socket.value = backlog;
-	ep->CELL.socket.in.socka = sk;
+	ep->CELL.socket.in.socketa = sock;
 
 	return dispatch_event(ep);
 }
@@ -1237,7 +1236,6 @@ static int tsem_socket_socketpair(struct socket *socka, struct socket *sockb)
 static int tsem_socket_sendmsg(struct socket *sock, struct msghdr *msgmsg,
 			       int size)
 {
-	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
 
 	if (bypass_event(TSEM_SOCKET_SENDMSG))
@@ -1247,7 +1245,7 @@ static int tsem_socket_sendmsg(struct socket *sock, struct msghdr *msgmsg,
 	if (!ep)
 		return -ENOMEM;
 
-	ep->CELL.socket.in.socka = sk;
+	ep->CELL.socket.in.socka = sock->sk;
 	ep->CELL.socket.in.addr = msgmsg->msg_name;
 
 	return dispatch_event(ep);
@@ -1256,7 +1254,6 @@ static int tsem_socket_sendmsg(struct socket *sock, struct msghdr *msgmsg,
 static int tsem_socket_recvmsg(struct socket *sock, struct msghdr *msgmsg,
 			       int size, int flags)
 {
-	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
 
 	if (bypass_event(TSEM_SOCKET_RECVMSG))
@@ -1266,7 +1263,7 @@ static int tsem_socket_recvmsg(struct socket *sock, struct msghdr *msgmsg,
 	if (!ep)
 		return -ENOMEM;
 
-	ep->CELL.socket.in.socka = sk;
+	ep->CELL.socket.in.socka = sock->sk;
 	if (msgmsg->msg_name && msgmsg->msg_namelen > 0)
 		ep->CELL.socket.in.addr = msgmsg->msg_name;
 
@@ -1275,7 +1272,6 @@ static int tsem_socket_recvmsg(struct socket *sock, struct msghdr *msgmsg,
 
 static int tsem_socket_getsockname(struct socket *sock)
 {
-	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
 
 	if (bypass_event(TSEM_SOCKET_GETSOCKNAME))
@@ -1285,14 +1281,13 @@ static int tsem_socket_getsockname(struct socket *sock)
 	if (!ep)
 		return -ENOMEM;
 
-	ep->CELL.socket.in.socka = sk;
+	ep->CELL.socket.in.socketa = sock;
 
 	return dispatch_event(ep);
 }
 
 static int tsem_socket_getpeername(struct socket *sock)
 {
-	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
 
 	if (bypass_event(TSEM_SOCKET_GETPEERNAME))
@@ -1302,14 +1297,13 @@ static int tsem_socket_getpeername(struct socket *sock)
 	if (!ep)
 		return -ENOMEM;
 
-	ep->CELL.socket.in.socka = sk;
+	ep->CELL.socket.in.socketa = sock;
 
 	return dispatch_event(ep);
 }
 
 static int tsem_socket_setsockopt(struct socket *sock, int level, int optname)
 {
-	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
 
 	if (bypass_event(TSEM_SOCKET_SETSOCKOPT))
@@ -1321,14 +1315,13 @@ static int tsem_socket_setsockopt(struct socket *sock, int level, int optname)
 
 	ep->CELL.socket.value = level;
 	ep->CELL.socket.optname = optname;
-	ep->CELL.socket.in.socka = sk;
+	ep->CELL.socket.in.socketa = sock;
 
 	return dispatch_event(ep);
 }
 
 static int tsem_socket_shutdown(struct socket *sock, int how)
 {
-	struct sock *sk = sock->sk;
 	struct tsem_event *ep;
 
 	if (bypass_event(TSEM_SOCKET_SHUTDOWN))
@@ -1339,7 +1332,7 @@ static int tsem_socket_shutdown(struct socket *sock, int how)
 		return -ENOMEM;
 
 	ep->CELL.socket.value = how;
-	ep->CELL.socket.in.socka = sk;
+	ep->CELL.socket.in.socketa = sock;
 
 	return dispatch_event(ep);
 }

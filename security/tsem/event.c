@@ -827,7 +827,7 @@ static int get_socket_cell(struct tsem_socket_args *args)
 
 {
 	int size, retn = 0;
-	struct sock *socka = args->in.socka;
+	struct sock *socka = args->in.socketa->sk;
 	struct sockaddr *addr = args->in.addr;
 
 	memset(&args->out, '\0', sizeof(args->out));
@@ -929,7 +929,7 @@ static void get_socket_msg(struct tsem_socket_args *args)
 static void get_socket_argument(struct tsem_socket_args *args)
 
 {
-	struct sock *socka = args->in.socka;
+	struct sock *socka = args->in.socketa->sk;
 
 	memset(&args->out, '\0', sizeof(args->out));
 	get_socket(socka, &args->out.socka);

@@ -1328,8 +1328,14 @@ struct tsem_socket_args {
 
 	union {
 		struct {
-			struct sock *socka;
-			struct sock *sockb;
+			union {
+				struct sock *socka;
+				struct socket *socketa;
+			};
+			union {
+				struct sock *sockb;
+				struct socket *socketb;
+			};
 			void *addr;
 		} in;
 
