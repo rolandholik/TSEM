@@ -908,12 +908,17 @@ static void get_socket_pair(struct tsem_socket_args *args)
 static void get_socket_msg(struct tsem_socket_args *args)
 
 {
-	struct sock *socka = args->in.socka;
-	void *addr = args->in.addr;
+	void *addr;
+	struct sock *socka = args->in.socketa->sk;
+	struct msghdr *msg = args->in.msg;
 
 	memset(&args->out, '\0', sizeof(args->out));
 
 	get_socket(socka, &args->out.socka);
+	if (!msg->msg_name || msg->msg_namelen == 0)
+		return;
+
+	addr = msg->msg_name;
 	if (addr) {
 		if (args->out.socka.family == AF_INET) {
 			args->out.have_addr = true;

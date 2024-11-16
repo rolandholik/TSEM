@@ -21,7 +21,7 @@ static const char *tomoyo_loader;
  *
  * Returns 0.
  */
-static int __init tomoyo_loader_setup(char *str)
+static int tomoyo_loader_setup(char *str)
 {
 	tomoyo_loader = str;
 	return 1;
@@ -61,7 +61,7 @@ static const char *tomoyo_trigger;
  *
  * Returns 0.
  */
-static int __init tomoyo_trigger_setup(char *str)
+static int tomoyo_trigger_setup(char *str)
 {
 	tomoyo_trigger = str;
 	return 1;

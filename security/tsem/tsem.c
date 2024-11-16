@@ -1245,8 +1245,9 @@ static int tsem_socket_sendmsg(struct socket *sock, struct msghdr *msgmsg,
 	if (!ep)
 		return -ENOMEM;
 
-	ep->CELL.socket.in.socka = sock->sk;
-	ep->CELL.socket.in.addr = msgmsg->msg_name;
+	ep->CELL.socket.in.socketa = sock;
+	ep->CELL.socket.in.msg = msgmsg;
+	ep->CELL.socket.value = size;
 
 	return dispatch_event(ep);
 }
@@ -1263,9 +1264,8 @@ static int tsem_socket_recvmsg(struct socket *sock, struct msghdr *msgmsg,
 	if (!ep)
 		return -ENOMEM;
 
-	ep->CELL.socket.in.socka = sock->sk;
-	if (msgmsg->msg_name && msgmsg->msg_namelen > 0)
-		ep->CELL.socket.in.addr = msgmsg->msg_name;
+	ep->CELL.socket.in.socketa = sock;
+	ep->CELL.socket.in.msg = msgmsg;
 
 	return dispatch_event(ep);
 }

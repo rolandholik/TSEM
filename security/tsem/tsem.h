@@ -1336,7 +1336,10 @@ struct tsem_socket_args {
 				struct sock *sockb;
 				struct socket *socketb;
 			};
-			void *addr;
+			union {
+				void *addr;
+				struct msghdr *msg;
+			};
 		} in;
 
 		struct {
