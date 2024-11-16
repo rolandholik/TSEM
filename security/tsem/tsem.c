@@ -221,7 +221,8 @@ const char * const tsem_names[TSEM_EVENT_CNT] = {
 	"capset",			/* TSEM_CAPSET */
 	"task_alloc",			/* TSEM_TASK_ALLOC */
 	"bprm_check_security",		/* TSEM_BPRM_CHECK_SECURITY */
-	"cred_prepare"			/* TSEM_CRED_PREPARE */
+	"cred_prepare",			/* TSEM_CRED_PREPARE */
+	"path_truncate"			/* TSEM_PATH_TRUNCATE */
 };
 
 static const unsigned long pseudo_filesystems[] = {
@@ -2246,6 +2247,24 @@ static int tsem_bpf_prog(struct bpf_prog *prog)
 }
 #endif
 
+#ifdef CONFIG_SECURITY_PATH
+static int tsem_path_truncate(const struct path *path)
+{
+	struct tsem_event *ep;
+
+	if (bypass_event(TSEM_PATH_TRUNCATE))
+		return 0;
+
+	ep = tsem_event_allocate(TSEM_PATH_TRUNCATE, NOLOCK);
+	if (!ep)
+		return -ENOMEM;
+
+	ep->CELL.inode.path = path;
+
+	return dispatch_event(ep);
+}
+#endif
+
 static struct security_hook_list tsem_hooks[] __ro_after_init = {
 	LSM_HOOK_INIT(task_alloc, tsem_task_alloc),
 	LSM_HOOK_INIT(task_free, tsem_task_free),
@@ -2369,7 +2388,11 @@ static struct security_hook_list tsem_hooks[] __ro_after_init = {
 #ifdef CONFIG_BPF_SYSCALL
 	LSM_HOOK_INIT(bpf, tsem_bpf),
 	LSM_HOOK_INIT(bpf_map, tsem_bpf_map),
-	LSM_HOOK_INIT(bpf_prog, tsem_bpf_prog)
+	LSM_HOOK_INIT(bpf_prog, tsem_bpf_prog),
+#endif
+
+#ifdef CONFIG_SECURITY_PATH
+	LSM_HOOK_INIT(path_truncate, tsem_path_truncate)
 #endif
 };
 

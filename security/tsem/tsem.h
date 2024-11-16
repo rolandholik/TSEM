@@ -161,6 +161,7 @@ enum tsem_event_type {
 	TSEM_TASK_ALLOC,
 	TSEM_BPRM_CHECK_SECURITY,
 	TSEM_CRED_PREPARE,
+	TSEM_PATH_TRUNCATE,
 	TSEM_EVENT_CNT
 };
 
@@ -1144,6 +1145,8 @@ struct tsem_dentry {
  * @mode: The access mode requested for an inode being created.
  * @dev: For the inode_mknod handler, the device specification for
  *	 device node being created.
+ * @path: In the case of path based event handlers the pointer to the
+ *	  path definition structure that was passed to the event.
  * @in.old_name: In the case of the tsem_inode_symlink handler, this
  *		 member contains a pointer to the filename of the target
  *		 of the symbolic link.
@@ -1178,6 +1181,7 @@ struct tsem_dentry {
 struct tsem_inode_args {
 	umode_t mode;
 	dev_t dev;
+	const struct path *path;
 
 	union {
 		struct {
