@@ -224,8 +224,7 @@ static void _fill_mount_path(struct tsem_inode *tsip, struct tsem_path *path)
 		path->creator = retn->creator;
 		path->instance = retn->instance;
 		memcpy(path->owner, retn->owner, tsem_digestsize());
-	}
-	else
+	} else
 		tsip->backing = NULL;
 	mutex_unlock(&ctx->mount_mutex);
 }
@@ -1395,7 +1394,6 @@ static void task_alloc(struct tsem_task_args *args)
 	if (new_task->context->id)
 		memcpy(new_task->task_key, old_task->task_key,
 		       HASH_MAX_DIGESTSIZE);
-	return;
 }
 
 static void event_free(struct tsem_event *ep)
@@ -1674,7 +1672,7 @@ static void bprm_committed_creds(struct tsem_event *ep)
 {
 	u8 task_id[HASH_MAX_DIGESTSIZE];
 
-	if (tsem_event_generate(ep) < 0 )
+	if (tsem_event_generate(ep) < 0)
 		return;
 
 	if (tsem_map_task(ep, task_id))
@@ -1707,7 +1705,6 @@ int tsem_event_init(struct tsem_event *ep)
 		task_alloc(&ep->CELL.task_args);
 		ep->terminate_event = true;
 		return 0;
-		break;
 	case TSEM_TASK_FREE:
 		ep->terminate_event = true;
 		return 0;
@@ -1715,7 +1712,6 @@ int tsem_event_init(struct tsem_event *ep)
 		bprm_committed_creds(ep);
 		ep->terminate_event = true;
 		return 0;
-		break;
 	default:
 		break;
 	}

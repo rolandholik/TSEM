@@ -938,7 +938,7 @@ static void tsem_bprm_committed_creds(const struct linux_binprm *bprm)
 
 	ep = tsem_event_allocate(TSEM_BPRM_COMMITTED_CREDS, NOLOCK);
 	if (!ep) {
-		pr_warn("tsem: Unable to allocate event for %s\n", __func__); 
+		pr_warn("tsem: Unable to allocate event for %s\n", __func__);
 		return;
 	}
 
