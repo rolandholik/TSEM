@@ -220,6 +220,7 @@ const char * const tsem_names[TSEM_EVENT_CNT] = {
 	"capget",			/* TSEM_CAPGET */
 	"capset",			/* TSEM_CAPSET */
 	"task_alloc",			/* TSEM_TASK_ALLOC */
+	"task_free",			/* TSEM_TASK_FREE */
 	"bprm_check_security",		/* TSEM_BPRM_CHECK_SECURITY */
 	"cred_prepare",			/* TSEM_CRED_PREPARE */
 	"path_truncate",		/* TSEM_PATH_TRUNCATE */
@@ -565,11 +566,20 @@ static int tsem_task_alloc(struct task_struct *new, unsigned long flags)
 
 static void tsem_task_free(struct task_struct *task)
 {
+	struct tsem_event ep;
 	struct tsem_context *ctx = tsem_context(task);
+
+	memset(&ep, '\0', sizeof(ep));
+	ep.event = TSEM_TASK_FREE;
+	ep.CELL.task_args.task = task;
+
+	if (ctx->ops->init)
+		ctx->ops->init(&ep);
+	else
+		tsem_event_init(&ep);
 
 	if (ctx->id)
 		tsem_ns_put(ctx);
-	kfree(tsem_task(task)->private);
 }
 
 static int tsem_task_kill(struct task_struct *target,

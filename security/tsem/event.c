@@ -1708,7 +1708,9 @@ int tsem_event_init(struct tsem_event *ep)
 		ep->terminate_event = true;
 		return 0;
 		break;
-
+	case TSEM_TASK_FREE:
+		ep->terminate_event = true;
+		return 0;
 	case TSEM_BPRM_COMMITTED_CREDS:
 		bprm_committed_creds(ep);
 		ep->terminate_event = true;
