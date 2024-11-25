@@ -303,7 +303,7 @@ __setup("tsem_locked", set_locked_status);
 
 static bool bypass_event(const enum tsem_event_type event)
 {
-	if (tsem_context(current)->ops->bypasses[event])
+	if (!tsem_context(current)->ops->events[event])
 		return true;
 	if (tsem_mode == NO_ROOT_MODELING && !tsem_context(current)->id)
 		return true;

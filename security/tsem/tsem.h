@@ -642,9 +642,9 @@ struct tsem_context {
  * struct tsem_context_ops - Security modeling namespace operations.
  * @char: A pointer to a null-terminated array containing the name
  *	  of the security model being implemented.
- * @bypass: A pointer to an array of booleans of size TSEM_EVENT_CNT
- *	    that specify whether or not a security event handler should
- *	    be bypassed.
+ * @events: A pointer to an array of booleans of size TSEM_EVENT_CNT
+ *	    that specify whether or not a security event should be
+ *	    handled.
  * @generate: A pointer to the function that implements initialization
  *	      of the CELL characteristics of the event.
  * @map: A pointer to the function that implements the mapping
@@ -658,7 +658,7 @@ struct tsem_context {
  */
 struct tsem_context_ops {
 	const char *name;
-	const bool *bypasses;
+	const bool *events;
 	int (*init)(struct tsem_event *ep);
 	int (*model_init)(void);
 	int (*generate)(struct tsem_event *ep);
