@@ -645,8 +645,20 @@ struct tsem_context {
  * @events: A pointer to an array of booleans of size TSEM_EVENT_CNT
  *	    that specify whether or not a security event should be
  *	    handled.
- * @generate: A pointer to the function that implements initialization
- *	      of the CELL characteristics of the event.
+ * @model_init: A pointer to the function that initializes a security
+ *		model when a security modeling namespace is created that
+ *		uses the model.
+ * @event_init: A pointer to the function that initializes the event
+ *		information for a security event.  The default initialization
+ *		function initializes both the subject and object information
+ *		for the event.  This method allows an alternate model to
+ *		take full control of the initialization of the event
+ *		information.
+ * @cell_init: A pointer to the function that initializes the object
+ *	       information for an event.  Providing an alternate
+ *	       implementation for this method allows a security model to
+ *	       override how the parameters of an event should be
+ *	       handled.
  * @map: A pointer to the function that implements the mapping
  *	 of security event characteristics into a security
  *	 coefficient.
@@ -659,9 +671,9 @@ struct tsem_context {
 struct tsem_context_ops {
 	const char *name;
 	const bool *events;
-	int (*init)(struct tsem_event *ep);
 	int (*model_init)(void);
-	int (*generate)(struct tsem_event *ep);
+	int (*event_init)(struct tsem_event *ep);
+	int (*cell_init)(struct tsem_event *ep);
 	int (*map)(struct tsem_event *ep);
 };
 
