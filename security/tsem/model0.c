@@ -106,6 +106,4 @@ static bool event_handlers[TSEM_EVENT_CNT] = {
 const struct tsem_context_ops tsem_model0_ops = {
 	.name = "model0",
 	.events = event_handlers,
-	.generate = tsem_event_generate,
-	.map = tsem_map_event
 };

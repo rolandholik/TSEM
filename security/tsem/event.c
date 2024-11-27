@@ -1727,8 +1727,12 @@ int tsem_event_init(struct tsem_event *ep)
 
 	get_COE(&ep->COE);
 
-	if (!ep->no_params)
-		retn = tsem_context(current)->ops->generate(ep);
+	if (unlikely(!ep->no_params)) {
+		if (likely(!tsem_context(current)->ops->generate))
+			retn = tsem_event_generate(ep);
+		else
+			retn = tsem_context(current)->ops->generate(ep);
+	}
 
 	if (retn > 0)
 		ep->event_number = ++tsem_context(current)->event_number;

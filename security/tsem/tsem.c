@@ -348,10 +348,10 @@ static int dispatch_event(struct tsem_event *ep)
 		goto done;
 	}
 
-	if (tsem_context(current)->ops->init)
-		retn = tsem_context(current)->ops->init(ep);
-	else
+	if (likely(!tsem_context(current)->ops->init))
 		retn = tsem_event_init(ep);
+	else
+		retn = tsem_context(current)->ops->init(ep);
 	if (ep->terminate_event)
 		goto done;
 	if (retn > 0) {
@@ -573,10 +573,10 @@ static void tsem_task_free(struct task_struct *task)
 	ep.event = TSEM_TASK_FREE;
 	ep.CELL.task_args.task = task;
 
-	if (ctx->ops->init)
-		ctx->ops->init(&ep);
-	else
+	if (likely(!ctx->ops->init))
 		tsem_event_init(&ep);
+	else
+		ctx->ops->init(&ep);
 
 	if (ctx->id)
 		tsem_ns_put(ctx);
