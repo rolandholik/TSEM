@@ -69,7 +69,8 @@
  * in the tsem.c file.
  */
 enum tsem_event_type {
-	TSEM_BPRM_COMMITTED_CREDS = 1,
+	TSEM_UNDEFINED,
+	TSEM_BPRM_COMMITTED_CREDS,
 	TSEM_TASK_KILL,
 	TSEM_TASK_SETPGID,
 	TSEM_TASK_GETPGID,
@@ -2312,7 +2313,7 @@ struct tsem_inode_digest {
  * modeling namespaces that are subordinate to the root model.
  */
 extern struct lsm_blob_sizes tsem_blob_sizes;
-extern const char * const tsem_names[TSEM_EVENT_CNT];
+extern const char * const tsem_names[];
 extern enum tsem_action_type tsem_root_actions[TSEM_EVENT_CNT];
 extern const struct tsem_context_ops tsem_model0_ops;
 
