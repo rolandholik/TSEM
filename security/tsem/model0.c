@@ -11,7 +11,7 @@
 
 #include "tsem.h"
 
-static bool event_handlers[TSEM_EVENT_CNT] = {
+static const bool event_handlers[TSEM_EVENT_CNT] = {
 	[TSEM_BPRM_COMMITTED_CREDS] = true,
 	[TSEM_TASK_KILL] = true,
 	[TSEM_TASK_SETPGID] = true,
