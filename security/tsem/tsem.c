@@ -102,7 +102,7 @@ DEFINE_STATIC_KEY_TRUE(tsem_not_ready);
 
 static bool tsem_available __ro_after_init;
 
-static unsigned int magazine_size __ro_after_init = TSEM_ROOT_MAGAZINE_SIZE;
+static unsigned int magazine_size __ro_after_init = TSEM_MAGAZINE_SIZE;
 
 static enum mode_type {
 	FULL_MODELING,
@@ -259,7 +259,7 @@ static int __init set_magazine_size(char *magazine_value)
 
 	if (!magazine_size) {
 		pr_warn("tsem: Forcing non-zero cache size.\n");
-		magazine_size = TSEM_ROOT_MAGAZINE_SIZE;
+		magazine_size = TSEM_MAGAZINE_SIZE;
 	}
 
 	pr_info("tsem: Setting default root cache size to %u.\n",
