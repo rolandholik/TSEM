@@ -32,6 +32,17 @@ static struct kmem_cache *event_cachep;
 
 static atomic64_t task_instance;
 
+#if defined(CONFIG_IMA) || defined(CONFIG_FILE_LOCKING)
+static inline void increment_readcount(struct inode *inode)
+{
+	i_readcount_inc(inode);
+}
+#else
+static inline void increment_readcount(struct inode *)
+{
+}
+#endif
+
 static bool created_inode(struct tsem_inode *tsip)
 {
 	return tsip->created && tsip->creator == tsem_context(current)->id;
@@ -313,31 +324,25 @@ static struct tsem_inode_digest *add_digest(struct tsem_context *ctx,
 	return digest;
 }
 
-static struct file *open_event_file(struct file *file, unsigned int *status)
+static struct file *open_event_file(struct file *file, bool *new_file)
 {
 	int flags;
 	struct file *alt_file;
 
-	if (!(file->f_mode & FMODE_CAN_READ)) {
-		file->f_mode |= FMODE_CAN_READ;
-		*status |= 4;
-	}
-	if (file->f_mode & FMODE_READ)
+	if ((file->f_mode & FMODE_READ) && (file->f_mode & FMODE_CAN_READ))
 		return file;
 
 	flags = file->f_flags & ~(O_WRONLY | O_APPEND | O_TRUNC | O_CREAT |
-				  O_NOCTTY | O_EXCL);
+				  O_NOCTTY | O_EXCL | O_PATH);
 	flags |= O_RDONLY;
 
 	alt_file = dentry_open(&file->f_path, flags, file->f_cred);
-	if (!IS_ERR(alt_file)) {
-		*status |= 1;
+	if (IS_ERR(alt_file))
 		return alt_file;
-	}
 
-	file->f_flags |= FMODE_READ;
-	*status |= 2;
-	return file;
+	increment_readcount(file_inode(alt_file));
+	*new_file = true;
+	return alt_file;
 }
 
 static int get_file_digest(struct file *file, struct inode *inode,
@@ -345,7 +350,7 @@ static int get_file_digest(struct file *file, struct inode *inode,
 {
 	u8 *bufr;
 	int retn = 0, rsize;
-	unsigned int open_status = 0;
+	bool new_file = false;
 	loff_t posn = 0;
 	struct file *read_file;
 	SHASH_DESC_ON_STACK(shash, tfm);
@@ -361,11 +366,11 @@ static int get_file_digest(struct file *file, struct inode *inode,
 		goto done;
 	}
 
-	if (!likely(file->f_op->read || file->f_op->read_iter)) {
-		retn = -EINVAL;
+	read_file = open_event_file(file, &new_file);
+	if (IS_ERR(read_file)) {
+		retn = PTR_ERR(read_file);
 		goto done;
 	}
-	read_file = open_event_file(file, &open_status);
 
 	while (posn < size) {
 		rsize = integrity_kernel_read(read_file, posn, bufr, 4096);
@@ -387,12 +392,8 @@ static int get_file_digest(struct file *file, struct inode *inode,
 		retn = crypto_shash_final(shash, digest);
 
  done:
-	if (open_status & 1)
+	if (new_file)
 		fput(read_file);
-	if (open_status & 2)
-		file->f_flags &= ~FMODE_READ;
-	if (open_status & 4)
-		file->f_flags &= ~FMODE_CAN_READ;
 	return retn;
 }
 
