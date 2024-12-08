@@ -1129,7 +1129,7 @@ static int get_sb_mount(struct tsem_sb_args *args)
 	if (retn)
 		goto done;
 
-	if (!strlen(dev_name)) {
+	if (dev_name && !strlen(dev_name)) {
 		mutex_lock(&ctx->mount_mutex);
 		list_for_each_entry(entry, &ctx->mount_list, list) {
 			if (!strcmp(entry->pathname,
