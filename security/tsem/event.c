@@ -296,14 +296,17 @@ static int fill_path_dentry(struct dentry *dentry, struct tsem_path *path)
 
 static struct tsem_inode_digest *find_digest(struct tsem_inode *tsip)
 {
-	struct tsem_inode_digest *digest;
+	struct tsem_inode_digest *digest = NULL;
 
+	mutex_lock(&tsip->digest_mutex);
 	list_for_each_entry(digest, &tsip->digest_list, list) {
 		if (!strcmp(digest->name, tsem_context(current)->digestname))
-			return digest;
+			goto done;
 	}
 
-	return NULL;
+ done:
+	mutex_unlock(&tsip->digest_mutex);
+	return digest;
 }
 
 static struct tsem_inode_digest *add_digest(struct tsem_context *ctx,
@@ -319,7 +322,9 @@ static struct tsem_inode_digest *add_digest(struct tsem_context *ctx,
 	if (!digest->name)
 		return NULL;
 
+	mutex_lock(&tsip->digest_mutex);
 	list_add(&digest->list, &tsip->digest_list);
+	mutex_unlock(&tsip->digest_mutex);
 
 	return digest;
 }
@@ -416,7 +421,6 @@ static int add_file_digest(struct file *file, bool pseudo_file,
 		return 0;
 	}
 
-	mutex_lock(&tsip->digest_mutex);
 	if (!ctx->external) {
 		retn = tsem_model_has_pseudonym(tsip, args->out.path.pathname);
 		if (retn < 0)
@@ -464,7 +468,6 @@ static int add_file_digest(struct file *file, bool pseudo_file,
 	tsip->status = TSEM_INODE_COLLECTED;
 
  done:
-	mutex_unlock(&tsip->digest_mutex);
 	return retn;
 }
 
