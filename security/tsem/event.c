@@ -286,9 +286,11 @@ static int fill_path_dentry(struct dentry *dentry, struct tsem_path *path)
 	if (retn)
 		goto done;
 
-	path->pathname = get_path_dentry(dentry);
-	if (IS_ERR(path->pathname))
-		retn = PTR_ERR(path->pathname);
+	if (path->dev) {
+		path->pathname = get_path_dentry(dentry);
+		if (IS_ERR(path->pathname))
+			retn = PTR_ERR(path->pathname);
+	}
 
  done:
 	return retn;
