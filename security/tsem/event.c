@@ -254,12 +254,12 @@ static int fill_path(const struct path *in, struct tsem_path *path)
 
 	retn = get_root(in->dentry, path);
 	if (retn)
-		goto done;
+		return retn;
 
 	if (path->dev) {
 		path->pathname = get_path(in);
 		if (IS_ERR(path->pathname))
-			retn = PTR_ERR(path->pathname);
+			return PTR_ERR(path->pathname);
 	}
 
 	if (list_empty(&tsem_context(current)->mount_list))
@@ -274,7 +274,6 @@ static int fill_path(const struct path *in, struct tsem_path *path)
 		memcpy(path->owner, tsip->backing->owner, tsem_digestsize());
 	}
 
- done:
 	return retn;
 }
 
