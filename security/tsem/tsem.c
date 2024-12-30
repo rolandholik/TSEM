@@ -113,7 +113,7 @@ static enum mode_type {
 
 static char *default_hash_function __ro_after_init;
 
-static const struct {
+static struct {
 	char *key;
 	enum mode_type mode;
 } mode_arguments[] __ro_after_init = {
