@@ -134,6 +134,7 @@ static int get_root(struct dentry *dentry, struct tsem_path *path)
 		path->pathname = kmalloc(size, GFP_KERNEL);
 		if (IS_ERR(path->pathname)) {
 			retn = PTR_ERR(path->pathname);
+			path->pathname = NULL;
 			goto done;
 		}
 
@@ -149,6 +150,7 @@ static int get_root(struct dentry *dentry, struct tsem_path *path)
 	path->pathname = kmalloc(size, GFP_KERNEL);
 	if (IS_ERR(path->pathname)) {
 		retn = PTR_ERR(path->pathname);
+		path->pathname = NULL;
 		goto done;
 	}
 
@@ -255,14 +257,12 @@ static int fill_path(const struct path *in, struct tsem_path *path)
 	}
 
 	retn = get_root(in->dentry, path);
-	if (retn)
+	if (retn || path->pathname)
 		return retn;
 
-	if (path->dev) {
-		path->pathname = get_path(in);
-		if (IS_ERR(path->pathname))
-			return PTR_ERR(path->pathname);
-	}
+	path->pathname = get_path(in);
+	if (IS_ERR(path->pathname))
+		return PTR_ERR(path->pathname);
 
 	if (list_empty(&tsem_context(current)->mount_list))
 		return retn;
@@ -284,16 +284,13 @@ static int fill_path_dentry(struct dentry *dentry, struct tsem_path *path)
 	int retn;
 
 	retn = get_root(dentry, path);
-	if (retn)
-		goto done;
+	if (retn || path->pathname)
+		return retn;
 
-	if (path->dev) {
-		path->pathname = get_path_dentry(dentry);
-		if (IS_ERR(path->pathname))
-			retn = PTR_ERR(path->pathname);
-	}
+	path->pathname = get_path_dentry(dentry);
+	if (IS_ERR(path->pathname))
+		retn = PTR_ERR(path->pathname);
 
- done:
 	return retn;
 }
 
