@@ -118,39 +118,41 @@ static int get_root(struct dentry *dentry, struct tsem_path *path)
 	struct super_block *sb = dentry->d_sb;
 	struct inode *inode = d_backing_inode(sb->s_root);
 
-	if (MAJOR(sb->s_dev) || inode->i_op->rename)
+	if (MAJOR(sb->s_dev) || inode->i_op->rename) {
 		path->dev = sb->s_dev;
-	else {
-		if (dentry->d_op && dentry->d_op->d_dname) {
-			pathbuffer = __getname();
-			p = dentry->d_op->d_dname(dentry, pathbuffer, 4096);
-			p1 = strchr(p, ':');
-			if (p1)
-				*p1 = '\0';
-
-			size = strlen(p) + 3;
-			path->pathname = kmalloc(size, GFP_KERNEL);
-			if (IS_ERR(path->pathname)) {
-				retn = PTR_ERR(path->pathname);
-				goto done;
-			}
-
-			strscpy(path->pathname, p, size);
-			strcat(path->pathname, ":/");
-			__putname(pathbuffer);
-		} else {
-			p = "nodev:/";
-			size = strlen(p) + 1;
-
-			path->pathname = kmalloc(size, GFP_KERNEL);
-			if (IS_ERR(path->pathname)) {
-				retn = PTR_ERR(path->pathname);
-				goto done;
-			}
-
-			strscpy(path->pathname, p, size);
-		}
+		return 0;
 	}
+
+	if (dentry->d_op && dentry->d_op->d_dname) {
+		pathbuffer = __getname();
+		p = dentry->d_op->d_dname(dentry, pathbuffer, 4096);
+		p1 = strchr(p, ':');
+		if (p1)
+			*p1 = '\0';
+
+		size = strlen(p) + 3;
+		path->pathname = kmalloc(size, GFP_KERNEL);
+		if (IS_ERR(path->pathname)) {
+			retn = PTR_ERR(path->pathname);
+			goto done;
+		}
+
+		strscpy(path->pathname, p, size);
+		strcat(path->pathname, ":/");
+		__putname(pathbuffer);
+		goto done;
+	}
+
+	p = "nodev:/";
+	size = strlen(p) + 1;
+
+	path->pathname = kmalloc(size, GFP_KERNEL);
+	if (IS_ERR(path->pathname)) {
+		retn = PTR_ERR(path->pathname);
+		goto done;
+	}
+
+	strscpy(path->pathname, p, size);
 
  done:
 	return retn;
