@@ -123,9 +123,12 @@ static int get_root(struct dentry *dentry, struct tsem_path *path)
 		return 0;
 	}
 
+	pathbuffer = __getname();
+	if (!pathbuffer)
+		return -ENOMEM;
+
 	if (dentry->d_op && dentry->d_op->d_dname) {
-		pathbuffer = __getname();
-		p = dentry->d_op->d_dname(dentry, pathbuffer, 4096);
+		p = dentry->d_op->d_dname(dentry, pathbuffer, PATH_MAX);
 		p1 = strchr(p, ':');
 		if (p1)
 			*p1 = '\0';
@@ -140,23 +143,26 @@ static int get_root(struct dentry *dentry, struct tsem_path *path)
 
 		strscpy(path->pathname, p, size);
 		strcat(path->pathname, ":/");
-		__putname(pathbuffer);
 		goto done;
 	}
 
-	p = "nodev:/";
-	size = strlen(p) + 1;
+	p = dentry_path_raw(dentry, pathbuffer, PATH_MAX);
+	if (IS_ERR(p)) {
+		retn = PTR_ERR(p);
+		goto done;
+	}
 
-	path->pathname = kmalloc(size, GFP_KERNEL);
+	path->pathname = kstrdup(p, GFP_KERNEL);
 	if (IS_ERR(path->pathname)) {
 		retn = PTR_ERR(path->pathname);
 		path->pathname = NULL;
 		goto done;
 	}
 
-	strscpy(path->pathname, p, size);
+	strscpy(path->pathname, p, strlen(p) + 1);
 
  done:
+	__putname(pathbuffer);
 	return retn;
 }
 
