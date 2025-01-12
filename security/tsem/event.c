@@ -23,6 +23,7 @@
 #include <linux/user_namespace.h>
 #include <linux/base64.h>
 #include <linux/ipv6.h>
+#include <linux/proc_fs.h>
 #include <uapi/linux/prctl.h>
 
 #include "../integrity/integrity.h"
@@ -111,6 +112,70 @@ static int register_inode_create(struct inode *dir, u64 instance,
 	return 0;
 }
 
+static char *_substitute_pids(struct super_block *sb, char *path, char *bufr)
+{
+	char *p, *start, *new_path, pid[13];
+	int retn;
+	unsigned int pidnum;
+	pid_t task_pid = task_tgid_nr_ns(current, proc_pid_ns(sb));
+
+	if (scnprintf(pid, sizeof(pid), "/%u/", task_pid) >= sizeof(pid))
+		return path;
+
+	new_path = __getname();
+	if (!new_path)
+		return path;
+	memset(new_path, '\0', PATH_MAX);
+
+	p = strstr(path, pid);
+	if (!p) {
+		p = strchr(path+1, '/');
+		if (p)
+			*p = '\0';
+		retn = kstrtouint(path+1, 10, &pidnum);
+		if (p)
+			*p = '/';
+		if (retn) {
+			__putname(new_path);
+			return path;
+		}
+
+		strscpy(new_path, "/PID", PATH_MAX);
+		p = strchr(path+1, '/');
+		if (p)
+			strcat(new_path, p);
+
+		strscpy(bufr, new_path, PATH_MAX);
+		__putname(new_path);
+		return bufr;
+	}
+
+	start = path;
+	while (p) {
+		if (p - start) {
+			memcpy(new_path + strlen(new_path), start, p - start);
+			start += (p - start);
+		}
+
+		strcat(new_path, "/SELF/");
+		start += strlen(pid);
+		p = strstr(start, pid);
+	}
+
+	pid[strlen(pid) - 1] = '\0';
+	p = strrchr(path, '/');
+	if (strcmp(p, pid))
+		strcat(new_path, start);
+	else {
+		memcpy(new_path + strlen(new_path), start, p - start);
+		strcat(new_path, "/SELF");
+	}
+
+	strscpy(bufr, new_path, PATH_MAX);
+	__putname(new_path);
+	return bufr;
+}
+
 static int get_root(struct dentry *dentry, struct tsem_path *path)
 {
 	int size, retn = 0;
@@ -138,11 +203,10 @@ static int get_root(struct dentry *dentry, struct tsem_path *path)
 		if (IS_ERR(path->pathname)) {
 			retn = PTR_ERR(path->pathname);
 			path->pathname = NULL;
-			goto done;
+		} else {
+			strscpy(path->pathname, p, size);
+			strcat(path->pathname, ":/");
 		}
-
-		strscpy(path->pathname, p, size);
-		strcat(path->pathname, ":/");
 		goto done;
 	}
 
@@ -150,16 +214,14 @@ static int get_root(struct dentry *dentry, struct tsem_path *path)
 	if (IS_ERR(p)) {
 		retn = PTR_ERR(p);
 		goto done;
+
 	}
+	if (inode->i_sb->s_magic == 0x9fa0 && strncmp(p, "/sys/", 5))
+		p = _substitute_pids(dentry->d_sb, p, pathbuffer);
 
 	path->pathname = kstrdup(p, GFP_KERNEL);
-	if (IS_ERR(path->pathname)) {
-		retn = PTR_ERR(path->pathname);
-		path->pathname = NULL;
-		goto done;
-	}
-
-	strscpy(path->pathname, p, strlen(p) + 1);
+	if (!path->pathname)
+		retn = -ENOMEM;
 
  done:
 	__putname(pathbuffer);
