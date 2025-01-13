@@ -117,6 +117,7 @@ static char *_substitute_pids(struct super_block *sb, char *path, char *bufr)
 	char *p, *start, *new_path, pid[13];
 	int retn;
 	unsigned int pidnum;
+	struct task_struct *proc_pid;
 	pid_t task_pid = task_tgid_nr_ns(current, proc_pid_ns(sb));
 
 	if (scnprintf(pid, sizeof(pid), "/%u/", task_pid) >= sizeof(pid))
@@ -129,10 +130,10 @@ static char *_substitute_pids(struct super_block *sb, char *path, char *bufr)
 
 	p = strstr(path, pid);
 	if (!p) {
-		p = strchr(path+1, '/');
+		p = strchr(path + 1, '/');
 		if (p)
 			*p = '\0';
-		retn = kstrtouint(path+1, 10, &pidnum);
+		retn = kstrtouint(path + 1, 10, &pidnum);
 		if (p)
 			*p = '/';
 		if (retn) {
@@ -140,10 +141,20 @@ static char *_substitute_pids(struct super_block *sb, char *path, char *bufr)
 			return path;
 		}
 
-		strscpy(new_path, "/PID", PATH_MAX);
-		p = strchr(path+1, '/');
+		rcu_read_lock();
+		proc_pid = find_task_by_vpid(pidnum);
+		if (likely(proc_pid))
+			scnprintf(new_path, PATH_MAX, "/%*phN",
+				  tsem_digestsize(),
+				  tsem_task(proc_pid)->task_id);
+		else
+			strscpy(new_path, "/PID", PATH_MAX);
+		rcu_read_unlock();
+
+		p = strchr(path + 1, '/');
 		if (p)
-			strcat(new_path, p);
+			strscpy(new_path + strlen(new_path), p,
+				PATH_MAX - strlen(new_path));
 
 		strscpy(bufr, new_path, PATH_MAX);
 		__putname(new_path);
