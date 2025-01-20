@@ -393,6 +393,8 @@ static void show_event(struct seq_file *c, struct tsem_event *ep)
 static void show_path(struct seq_file *c, char *key, char *term,
 		      struct tsem_path *path)
 {
+	char *type;
+
 	tsem_fs_show_field(c, key);
 
 	if (path->dev) {
@@ -406,6 +408,19 @@ static void show_path(struct seq_file *c, char *key, char *term,
 				 path->owner);
 		tsem_fs_show_key(c, "instance", ",", "%llu", path->instance);
 	}
+
+	switch (path->type) {
+	case TSEM_PATH_TYPE_ROOT:
+		type = "root";
+		break;
+	case TSEM_PATH_TYPE_CHROOT:
+		type = "chroot";
+		break;
+	case TSEM_PATH_TYPE_NAMESPACE:
+		type = "namespace";
+		break;
+	}
+	tsem_fs_show_key(c, "type", ",", "%s", type);
 
 	tsem_fs_show_key(c, "pathname", "}", "%s", path->pathname);
 	seq_puts(c, term);

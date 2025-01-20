@@ -24,6 +24,7 @@
 #include <linux/base64.h>
 #include <linux/ipv6.h>
 #include <linux/proc_fs.h>
+#include <linux/fs_struct.h>
 #include <uapi/linux/prctl.h>
 
 #include "../integrity/integrity.h"
@@ -193,6 +194,13 @@ static int get_root(struct dentry *dentry, struct tsem_path *path)
 	char *p, *p1, *pathbuffer = NULL;
 	struct super_block *sb = dentry->d_sb;
 	struct inode *inode = d_backing_inode(sb->s_root);
+
+	if (current_chrooted())
+		path->type = TSEM_PATH_TYPE_CHROOT;
+	else if (current->nsproxy->mnt_ns != init_task.nsproxy->mnt_ns)
+		path->type = TSEM_PATH_TYPE_NAMESPACE;
+	else
+		path->type = TSEM_PATH_TYPE_ROOT;
 
 	if (MAJOR(sb->s_dev) || inode->i_op->rename) {
 		path->dev = sb->s_dev;

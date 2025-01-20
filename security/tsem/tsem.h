@@ -356,6 +356,24 @@ enum tsem_task_trust {
 };
 
 /**
+ * enum tsem_path_type - Ordinal value describing a path reference.
+ * @TSEM_PATH_TYPE_ROOT: This ordinal value indicates that the path reference
+ *			 is to the root filesystem.
+ * @TSEM_PATH_TYPE_CHROOT: This ordinal value indicates that the path reference
+ *			   is to a chroot environment.
+ * @TSEM_PATH_TYPE_NAMESPACE: This ordinal value indicates that the
+ *			      path reference is to a mount namespace.
+ *
+ * This enumeration type is designed to allow models to differentiate
+ * paths based on what is used as the reference for the path.
+ */
+enum tsem_path_type {
+	TSEM_PATH_TYPE_ROOT = 1,
+	TSEM_PATH_TYPE_CHROOT,
+	TSEM_PATH_TYPE_NAMESPACE
+};
+
+/**
  * enum tsem_inode_state - Ordinal value for inode reference state.
  * @TSEM_INODE_COLLECTING: This ordinal value indicates that the inode
  *			   is being opened in order to compute the
@@ -1144,6 +1162,7 @@ struct tsem_path {
 
 	dev_t dev;
 	char *pathname;
+	enum tsem_path_type type;
 };
 
 /**

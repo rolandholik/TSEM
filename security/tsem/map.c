@@ -145,6 +145,7 @@ static int add_temp_path(struct shash_desc *shash, char *pathname,
 
 static int add_path(struct shash_desc *shash, struct tsem_path *path)
 {
+	char *type;
 	int retn;
 
 	if (path->dev) {
@@ -155,6 +156,21 @@ static int add_path(struct shash_desc *shash, struct tsem_path *path)
 		if (retn)
 			goto done;
 	}
+
+	switch (path->type) {
+	case TSEM_PATH_TYPE_ROOT:
+		type = "root";
+		break;
+	case TSEM_PATH_TYPE_CHROOT:
+		type = "chroot";
+		break;
+	case TSEM_PATH_TYPE_NAMESPACE:
+		type = "namespace";
+		break;
+	}
+	retn = add_str(shash, type);
+	if (retn)
+		goto done;
 
 	if (path->created) {
 		retn = add_temp_path(shash, path->pathname, path->instance,

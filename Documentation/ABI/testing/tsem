@@ -795,6 +795,7 @@ inode:
 		},
 		"instance": "NN",  	/* Optional. */
 		"owner": "DIGEST", 	/* Optional. */
+		"type": "ASCII",
 		"pathname": "ASCII"
 	}
 
@@ -820,6 +821,17 @@ inode:
 
 			If reported, the DIGEST value is the TASK_ID
 			of the process that created the inode.
+
+	type:		An ASCII description of the reference that was
+			used for the pathname.  The following string
+			descriptions are used:
+
+			root: The path reference is the root filesystem.
+
+			namespace: The path reference is in a namespace.
+
+			chroot: The path reference is in a chroot
+				environment.
 
 	pathname:	The pathname of the file.
 	
