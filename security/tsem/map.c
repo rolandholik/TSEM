@@ -120,13 +120,12 @@ static int add_temp_path(struct shash_desc *shash, char *pathname,
 	int retn;
 
 	p = strrchr(pathname, '/');
-	if (!p)
-		return -EINVAL;
-
-	++p;
-	ch = *p;
-	if (ch)
-		*p = '\0';
+	if (p) {
+		++p;
+		ch = *p;
+		if (ch)
+			*p = '\0';
+	}
 	retn = add_str(shash, pathname);
 	if (ch)
 		*p = ch;
