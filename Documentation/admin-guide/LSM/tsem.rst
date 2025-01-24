@@ -506,10 +506,13 @@ can or should be implemented in these namespaces.
 
 On the theory that security event handlers represent all of the
 security relevant action points in the kernel, any security or
-integrity model can be implemented using the TSEM infrastructure.  For
-example, basic IMA functionality could be implemented by a TMA that
-maps the digests of files accessed, or mapped executable, by the root
-user as the security state coefficients.
+integrity model can be implemented using the TSEM infrastructure.
+
+For example, a basic file integrity model could be implemented by a
+TMA that maps the digests of files accessed, or mapped executable, by
+the root user as the security state coefficients.  The Quixote
+userspace tools has an example of such a model implemented as a TSEM
+loadable module.
 
 A primary intent of the Linux TSEM implementation is to provide a
 generic method for implementing security policy in userspace rather
