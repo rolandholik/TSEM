@@ -244,10 +244,44 @@ that the security behavior of a platform, or alternatively a workload,
 can be modeled like any other physical phenomenon in science and
 engineering.
 
-Inspiration for this came from the primary TSEM author/architect
-having trained as a quantum chemist, conducting very early research in
-the development of multi-scale modeling strategies for molecules of
-size to be of interest to pharmaceutical intents.
+Motivation for this came from the primary TSEM author/architect having
+trained as a quantum chemist, conducting very early research in the
+development of multi-scale modeling strategies for molecules of size
+to be of interest to pharmaceutical intents.
+
+Inspiration for the mathematical modeling of security behavior was
+taken from the Turing Abstract Machine Model (TAMM).  Readers who are
+unfamiliar with the Turing Model of Computation may find reading the
+following article on the TAMM to be of benefit before continuing
+forward:
+
+https://en.wikipedia.org/wiki/Turing_machine
+
+In brief, TAMM is a model for computation that consists of a 'head'
+that traverses a paper tape of infinite length that is broken into
+individual 'cells' that the head reads.  Each cell contains a symbol
+that directs the next state or action of the machine.
+
+In TSEM, the model for the security behavior of an execution domain
+consists of a Context Of Execution (COE) with defining
+characteristics, that traverses a finite set of measurement points of
+infinite length, with each measurement point having defining
+characteristics.  The COE is the equivalent of the 'head' in the TAMM.
+
+Each measurement point with defining characteristics is referred to as
+a 'CELL', in deference to the inspiration for the model.  The
+abbreviations of COE and CELL will be used throughout the remainder of
+this documentation.
+
+The pathway through the set of finite measurement points may be of
+infinite length, as is the case with the paper tape in TAMM.  The
+remainder of this documentation refers to this pathway as a security
+execution trajectory.
+
+In TAMM, the total expressible behavior of a computational machine is
+the total set of unique directives that are expressed in the cells.
+In SEM the expressed security state of an execution trajectory is the
+sum of the unique security measurements taken by the COE.
 
 SEM is premised on the theory that kernel security architects have
 instrumented the LSM security event hooks to be called in locations
@@ -269,12 +303,12 @@ the security state of the system.
 
 Two subordinate identities are combined to yield a security event
 state coefficient.  These subordinate identities are referred to as
-the Context Of Execution (COE) and the CELL, which are conceptually
-similar to the subject and object in mandatory access control.  The
-COE identity is derived from the parameters that describe the security
-relevant characteristics (ie. credentials) of a process, while the
-CELL value is derived from the parameters used by a security event
-hook to describe the characteristics of the event.
+the COE and CELL identities, which are conceptually similar to the
+subject and object in mandatory access control.  The COE identity is
+derived from the parameters that describe the security relevant
+characteristics (ie. credentials) of a process, while the CELL value
+is derived from the parameters used by a security event hook to
+describe the characteristics of the event.
 
 A security policy is implemented by a modeling algorithm that
 translates COE and CELL event parameters into their respective
