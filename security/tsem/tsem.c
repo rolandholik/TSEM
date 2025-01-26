@@ -911,10 +911,11 @@ static int tsem_task_getscheduler(struct task_struct *p)
 static int tsem_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 			   unsigned long arg4, unsigned long arg5)
 {
+	int retn;
 	struct tsem_event *ep;
 
 	if (bypass_event(TSEM_TASK_PRCTL))
-		return 0;
+		return -ENOSYS;
 
 	ep = tsem_event_allocate(TSEM_TASK_PRCTL, LOCK);
 	if (!ep)
@@ -926,7 +927,10 @@ static int tsem_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 	ep->CELL.task_prctl.arg4 = arg4;
 	ep->CELL.task_prctl.arg5 = arg5;
 
-	return dispatch_event(ep);
+	retn = dispatch_event(ep);
+	if (!retn)
+		retn = -ENOSYS;
+	return retn;
 }
 
 static void tsem_bprm_committed_creds(const struct linux_binprm *bprm)
