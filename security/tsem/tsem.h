@@ -422,6 +422,7 @@ enum tsem_inode_state {
 
 /**
  * struct tsem_task - TSEM task control structure.
+ * @tnum: The serial number of the task, incremented for each new task.
  * @tma_for_ns: The context identity number of the namespace that
  *		the task has control over if any.
  * @instance: The instance number of the task.  The global task
@@ -439,10 +440,6 @@ enum tsem_inode_state {
  * @task_id: The TSEM task identity (TASK_ID) of the process.
  * @p_task_id: The TASK_ID of the parent process to the process
  *	       represented by an instance of this structure.
- * @task_key: A security model specific digest value that is used to
- *	      authenticate a task that is running as a trust
- *	      orchestrator to a task that is under the control of the
- *	      orchestrator.
  * @context: A pointer to the tsem_context structure that defines the
  *	     modeling context that the task is running under.
 
@@ -472,12 +469,6 @@ enum tsem_inode_state {
  * incremented and assigned to the instance member of the structure
  * at the same tame the TASK_ID value is computed.
  *
- * The task_key member holds the authentication key that will be used
- * to authenticate a process that is requesting the ability to set the
- * trust status of a process.  This value is generated for the task
- * structure of the trust orchestrator when a security modeling
- * namespace is created by the orchestrator.
- *
  * The context member of the structure contains a pointer to the
  * tsem_context structure allocated when a security modeling namespace
  * is created by the tsem_ns_create() function.  This structure will
@@ -485,13 +476,13 @@ enum tsem_inode_state {
  * have its security behavior modeled.
  */
 struct tsem_task {
+	u64 tnum;
 	u64 tma_for_ns;
 	u64 instance;
 	u64 p_instance;
 	enum tsem_task_trust trust_status;
 	u8 task_id[HASH_MAX_DIGESTSIZE];
 	u8 p_task_id[HASH_MAX_DIGESTSIZE];
-	u8 task_key[HASH_MAX_DIGESTSIZE];
 	struct tsem_context *context;
 	void *private;
 };
@@ -2107,6 +2098,7 @@ struct tsem_event {
 	u64 timestamp;
 	u64 event_number;
 	pid_t pid;
+	u64 tnum;
 	char comm[TASK_COMM_LEN];
 
 	unsigned int digestsize;
@@ -2359,10 +2351,9 @@ extern void tsem_model_magazine_free(struct tsem_model *model);
 extern int tsem_model_cache_init(struct tsem_model *model, size_t size);
 
 extern void tsem_ns_put(struct tsem_context *ctx);
-extern int tsem_ns_event_key(u8 *task_key, const char *keystr, u8 *key);
 extern int tsem_ns_create(const enum tsem_control_type type,
 			  const char *digest, const enum tsem_ns_reference ns,
-			  const char *key, const unsigned int cache_size,
+			  const unsigned int cache_size,
 			  const struct tsem_context_ops *ops);
 extern int tsem_ns_export_root(unsigned int magazine_size);
 

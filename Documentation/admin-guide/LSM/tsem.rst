@@ -627,7 +627,7 @@ The process identifier values (PID's) that are exported in the
 security event descriptions are the unique global PID values, not the
 value as seen through the lens of a PID namespace.
 
-PID values are, by default, not considered to be a stable identifier
+PID values, in general, are not considered to be a stable identifier
 between the kernel and userspace.  In the case of TSEM external
 modeling, the threat model for a namespace is whether or not an
 adversarial process, running in either the root security modeling
@@ -635,109 +635,76 @@ namespace or another subordinate security modeling namespace, can kill
 a process that is being orchestrated and substitute an alternate
 process with an identical PID value.
 
-The suggested threat model would be that the orchestrator would set
-the trust status of the adversarial process rather than the one that
-had emitted the security event characteristics.  The threat interval
-is the latency time required for the processing of the security event
-description by the trust orchestrator and its associated TMA.
+TSEM incorporates two primary protections to defeat this attack.
 
-Exploiting this theoretical race is extremely complex and requires an
-in depth understanding of the TSEM architecture.  Rather than discuss
-the conditions that must be met and their implications, this
-discussion will first focus on the generic threat model and its
-generic utility to an adversary followed by a treatment of the
-mechanisms that TSEM implements in order to mitigate this threat.
+First and most importantly:
 
-In short, a process in an adversarial security modeling namespace
-would want to execute security events that are barred from its
-security model with the hope of having them approved by an alternate
-namespace.
+TSEM generates a unique identifier, referred to as a task number, for
+every task/process that is created.  A 64-bit integer value is used
+for this identifier that eliminates the possibility of the value ever
+wrapping and repeating itself.
 
-A process waiting for the external modeling of a security event
-description can only be placed back into run state by two methods:
-reception of a fatal signal or the TRUST_PENDING status bit being
-cleared from its TSEM specific task control structure by a trust
-orchestrator.
+A brief example of why task identifier wrapping is not a possibility.
+If a system were to fork and generate a new process once every
+nanosecond, it would take 54 years of continuously forking processes
+to wrap the task identifier counter.
 
-If a process being evaluated receives a fatal signal, its trust status
-will be set to untrusted and an error will be returned to the trust
-orchestrator.  The error would cause a trust violation to be
-registered for the workload.  In addition, the evaluation of the event
-would be terminated, so a replacement process would not receive an
-incorrect trust assessment for an event that was initiated by its
-predecessor.
+Both the PID value and the 64-bit task number are exported to the
+trust orchestrator for each event that is to be modeled.  The control
+plane command to set the trusted or untrusted status of a process,
+waiting for evaluation, includes both the PID and the task number.
 
-The second issue that limits the utility of a PID substitution attack
-is that from the point of substitution forward it would place the
-replacement process in the context of the security model that the
-trust orchestrator is enforcing.  As a result, a substituted process
-would not be allowed to exhibit any security behaviors inconsistent
-with the model being enforced.
+Since locating a process by its PID value is a highly optimized core
+kernel function, the PID value is used to locate the process whose
+status is to be set.  After locating the relevant process, the task
+number passed via the control plane call is compared to the task
+number in the TSEM task control structure that was set when the task
+was created.  If the values do not match a control plane error is
+generated.
 
-If an attempt to exploit this race would be considered, an adversarial
-process would have to force the termination of a process in the target
-namespace and then fork and exit a process a sufficient number of
-times in order to have a process under its control match the PID value
-of the process that was waiting for an orchestration response.
+Secondly:
 
-Measured modeling latency times for a trust orchestrator running the
-deterministic Quixote TMA in userspace, on current generation x86_64
-hardware, averages 170 micro-seconds.  In a worst case scenario from
-the perspective of an adversary, there would be a need to force the
-termination of the target process and then fork and execute a
-sufficient number of times to force the PID collision during this time
-interval.
+The task identity model that TSEM is based on renders such an attack,
+even if possible, useless.  Readers interested in the rationale for
+this should review the generative functions that are are used for task
+identities and security state coefficients.
 
-As a generic protection, TSEM in the tsem_task_kill() handler, blocks
-the notion of 'cross-model' signals, ie. a signal originating from an
-external security modeling namespace.  This would require the
+The identity of a task is linked to the identity of each task in the
+process chain that led to the task.  Each task identity in the chain
+is in turn also dependent on the cryptographic check-sum of the
+executable code that was the basis for the task.  The result of this
+are task identities that are bound to the specific execution sequence
+of executable code that led to a task.
+
+The security coefficient for an event is in turn dependent on the
+identity of the task generating the event.  This causes the security
+state coefficients for a modeled workload to be dependent, not only on
+the identity of the task that is generating the event, but upon the
+identities of the tasks that led to the task generating the event.
+
+Thus, by definition, a substituted process would be unable to generate
+security state coefficients consistent with the known good
+coefficients of a security modeling namespace being attacked.
+
+The following, additional protections, are in place.
+
+TSEM in the tsem_task_kill() handler, blocks the notion of
+'cross-model' signals, ie. a signal originating from an external
+security modeling namespace, unless the signaling process has the
+CAP_MAC_ADMIN capability.  This would require a non-privileged
 adversary to reliably force a process termination through a mechanism
 other than signaling, for example, through the OOM killer whose signal
 transmission would not be blocked by this policy control.
+
+Finally.
 
 When a subordinate security modeling namespace is created, the id
 number of the namespace is registered in the tsem_task structure of
 the trust orchestrator that is creating the namespace.  The TSEM
 driver will refuse to honor control plane requests affecting the trust
-status of a process whose trust orchestrator security namespace id
-does not match the namespace identifier of the process that it is
-being asked to act on.
-
-As an additional protection, TSEM uses an authentication strategy that
-allows a process running in a security modeling namespace to verify
-that a control request is coming from the trust orchestrator that
-initiated the namespace the process is running in.  As part of the
-setup of a security modeling namespace, a trust orchestrator is
-required to provide an ASCII hexadecimally encoded authentication key
-that matches the length of a digest value of cryptographic hash
-function being used to generate security state coefficient in the
-security modeling namespace.  This authentication key must be provided
-by the trust orchestrator for every subsequent control plane request.
-
-The process that is being transferred to a subordinate security
-modeling namespace generates a second random key that is hashed with
-the authentication key provided by the trust orchestrator, using the
-hash function that has been defined for the security namespace.  The
-resultant digest value is compared to a list of authentication keys
-for all currently executing namespaces.  The selection of the second
-random key is repeated until a globally unique key is generated.
-
-This randomly generated authentication key is stored in the tsem_task
-structure of the process and propagated to any subsequent processes
-that are created in the namespace.  The hash product of this key and
-the orchestration authentication key, ie. the globally unique key, is
-placed in the tsem_task control structure of the orchestration
-process.
-
-When a control plane request is received, the authentication key
-provided by the trust orchestrator is used to re-generate an
-authentication key based on the randomly generated namespace key held
-by the process whose trust status is being updated.  The generated
-authentication key is compared to the key in the tsem_task structure
-of the process issuing the orchestration call.  The control plane will
-refuse to honor a control plane request if the call specific key that
-is generated does not match the key generated at the time the security
-namespace was created.
+status of a process whose trust orchestrator security namespace
+identifier does not match the namespace identifier of the process that
+it is being asked to act on.
 
 Event modeling
 --------------

@@ -70,7 +70,6 @@ enum namespace_argument_type {
 	NS_MODEL = 0,
 	NS_REF,
 	NS_DIGEST,
-	NS_KEY,
 	NS_CACHE
 };
 
@@ -78,18 +77,17 @@ static const char * const namespace_arguments[] = {
 	"model",
 	"nsref",
 	"digest",
-	"key",
 	"cache"
 };
 
 enum control_argument_type {
-	CONTROL_KEY = 0,
-	CONTROL_PID
+	CONTROL_PID = 0,
+	CONTROL_TNUM
 };
 
 static const char * const control_arguments[] = {
-	"key",
-	"pid"
+	"pid",
+	"tnum"
 };
 
 static bool can_access_fs(void)
@@ -105,11 +103,10 @@ static bool can_access_fs(void)
 	return true;
 }
 
-static int control_COE(unsigned long cmd, pid_t pid, char *keystr)
+static int control_COE(unsigned long cmd, pid_t pid, long long tnum)
 {
 	bool wakeup = false;
 	int retn = -ESRCH;
-	u8 event_key[HASH_MAX_DIGESTSIZE];
 	struct task_struct *COE;
 	struct tsem_task *task;
 	struct tsem_task *tma = tsem_task(current);
@@ -123,11 +120,7 @@ static int control_COE(unsigned long cmd, pid_t pid, char *keystr)
 			goto done;
 		}
 
-		retn = tsem_ns_event_key(task->task_key, keystr, event_key);
-		if (retn)
-			goto done;
-
-		if (memcmp(tma->task_key, event_key, tsem_digestsize())) {
+		if (tnum != task->tnum) {
 			retn = -EINVAL;
 			goto done;
 		}
@@ -157,10 +150,11 @@ static int control_COE(unsigned long cmd, pid_t pid, char *keystr)
 
 static int config_COE(unsigned long cmd, char *arg)
 {
-	char **argv, *argp, *key = NULL;
+	char **argv, *argp;
 	int argc, retn = -EINVAL;
 	unsigned int lp;
 	long pid = 0;
+	long long tnum;
 	enum control_argument_type control_arg;
 
 	if (!*arg)
@@ -183,21 +177,20 @@ static int config_COE(unsigned long cmd, char *arg)
 			goto done;
 
 		switch (control_arg) {
-		case CONTROL_KEY:
-			key = argp;
-			if (strlen(key) != tsem_digestsize()*2)
-				goto done;
-			break;
 		case CONTROL_PID:
 			if (kstrtol(argp, 0, &pid))
+				goto done;
+			break;
+		case CONTROL_TNUM:
+			if (kstrtoll(argp, 0, &tnum))
 				goto done;
 			break;
 		}
 	}
 
-	if (!key || !pid)
+	if (!pid || !tnum)
 		goto done;
-	retn = control_COE(cmd, pid, key);
+	retn = control_COE(cmd, pid, tnum);
 
  done:
 	argv_free(argv);
@@ -264,7 +257,7 @@ static int config_point(enum tsem_control_type type, char *arg)
 
 static int config_namespace(enum tsem_control_type type, const char *arg)
 {
-	char **argv, *argp, *digest = "sha256", *key = NULL;
+	char **argv, *argp, *digest = "sha256";
 	int argc, retn = -EINVAL;
 	unsigned int lp, cache_size = TSEM_MAGAZINE_SIZE;
 	enum namespace_argument_type ns_arg;
@@ -277,8 +270,7 @@ static int config_namespace(enum tsem_control_type type, const char *arg)
 	if (!arg) {
 		if (type == TSEM_CONTROL_EXTERNAL)
 			return retn;
-		return tsem_ns_create(type, digest, ns_ref, key, cache_size,
-				      ops);
+		return tsem_ns_create(type, digest, ns_ref, cache_size, ops);
 	}
 
 	argv = argv_split(GFP_KERNEL, arg, &argc);
@@ -315,11 +307,6 @@ static int config_namespace(enum tsem_control_type type, const char *arg)
 			if (!crypto_has_shash(digest, 0, 0))
 				goto done;
 			break;
-		case NS_KEY:
-			key = argp;
-			if (strlen(key) % 2)
-				goto done;
-			break;
 		case NS_CACHE:
 			if (kstrtouint(argp, 0, &cache_size))
 				goto done;
@@ -331,10 +318,7 @@ static int config_namespace(enum tsem_control_type type, const char *arg)
 		}
 	}
 
-	if (type == TSEM_CONTROL_EXTERNAL && !key)
-		goto done;
-
-	retn = tsem_ns_create(type, digest, ns_ref, key, cache_size, ops);
+	retn = tsem_ns_create(type, digest, ns_ref, cache_size, ops);
 
  done:
 	argv_free(argv);
@@ -362,8 +346,10 @@ static void show_creds(struct seq_file *c, char *key, char *term,
 static void show_event(struct seq_file *c, struct tsem_event *ep)
 {
 	tsem_fs_show_field(c, "event");
-	if (ep->pid)
+	if (ep->pid) {
 		tsem_fs_show_key(c, "pid", ",", "%u", ep->pid);
+		tsem_fs_show_key(c, "tnum", ",", "%llu", ep->tnum);
+	}
 	tsem_fs_show_key(c, "context", ",", "%llu", ep->context);
 	tsem_fs_show_key(c, "number", ",", "%llu", ep->event_number);
 	tsem_fs_show_key(c, "process", ",", "%s", ep->comm);

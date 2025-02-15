@@ -32,6 +32,7 @@
 
 static struct kmem_cache *event_cachep;
 
+static atomic64_t task_number;
 static atomic64_t task_instance;
 
 #if defined(CONFIG_IMA) || defined(CONFIG_FILE_LOCKING)
@@ -1475,16 +1476,13 @@ static void task_alloc(struct tsem_task_args *args)
 	struct tsem_task *old_task = tsem_task(current);
 	struct tsem_task *new_task = tsem_task(args->task);
 
+	new_task->tnum = atomic64_inc_return(&task_number);
 	new_task->instance = old_task->instance;
 	new_task->p_instance = old_task->instance;
 
 	new_task->trust_status = old_task->trust_status;
 	memcpy(new_task->task_id, old_task->task_id, HASH_MAX_DIGESTSIZE);
 	memcpy(new_task->p_task_id, old_task->task_id, HASH_MAX_DIGESTSIZE);
-
-	if (new_task->context->id)
-		memcpy(new_task->task_key, old_task->task_key,
-		       HASH_MAX_DIGESTSIZE);
 }
 
 static void event_free(struct tsem_event *ep)
@@ -1808,6 +1806,7 @@ int tsem_event_init(struct tsem_event *ep)
 	}
 
 	ep->pid = task_pid_nr(current);
+	ep->tnum = tsem_task(current)->tnum;
 	ep->context = tsem_context(current)->id;
 	ep->instance = task->instance;
 	ep->p_instance = task->p_instance;

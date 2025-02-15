@@ -155,20 +155,6 @@ Description:
 			entries.  An internally modeled namespace will
 			have 16 entries.
 
-		key=HEXID
-			The key argument is used to specify the
-			authentication key that will be used by a
-			trust orchestrator to authenticate trust
-			control requests to a process running in the
-			security modeling namespace.
-
-			The HEXID value is the ASCII base16 encoded
-			representation of the key that is to be used.
-			The length of this key, in binary, must be
-			equal to the size of the digest produced by
-			the cryptographic hash function that is being
-			used in the security modeling namespace.
-
 		enforce
 			The enforce keyword causes the modeling
 			namespace of the process to enter enforcing
@@ -189,7 +175,7 @@ Description:
 			current model will be considered a violation
 			of the model.
 
-		trusted pid=PID key=HEXID
+		trusted pid=PID tnum=NNNN
 			The trusted keyword is used by a trust
 			orchestrator to specify that a process being
 			woken up after model evaluation of a security
@@ -199,11 +185,11 @@ Description:
 			The pid argument is used to locate the process
 			that is sleeping on the modeling event.
 
-			The HEXID argument is the authentication key
-			that was configured by a trust orchestrator
-			for the namespace at the time of its creation.
+			The tnum argument is the task number of the
+			process/task that generated the security event
+			that is being evaluated.
 
-		untrusted pid=PID key=HEXID
+		untrusted pid=PID tnum=NNNN
 			The untrusted keyword is used by a trust
 			orchestrator to specify that a process being
 			woken up after model evaluation should be
@@ -212,9 +198,9 @@ Description:
 			The pid argument is used to locate the process
 			that is sleeping on the modeling event.
 
-			The HEXID argument is the authentication key
-			that was configured by a trust orchestrator
-			for the namespace at the time of its creation.
+			The tnum argument is the task number of the
+			process/task that generated the security event
+			that is being evaluated.
 
 		state value=HEXID
 			The state keyword is used to indicate that the
@@ -586,6 +572,8 @@ Event encoding:
 The 'event' label encodes a value structure of the following form:
 
 	"event": {
+		"pid": "NN",
+		"tnum": "NN",
 		"context": "NN",
 		"number": "NN",
 	        "process": "ASCII",
@@ -598,6 +586,16 @@ The 'event' label encodes a value structure of the following form:
 	{
 
 Where the value type for the individual keys is as follows:
+
+	pid:		The process identifier of the process generating
+			an event.  This key/value pair is only included
+			when an event description is being exported to
+			userspace for direct modeling or logging.
+
+	tnum:		The task identifier of the process generating an
+			event.  This key/value pair is only included when
+			an event description is being exported to userspace
+			for direct modeling or logging.
 
 	context:	A 64-bit numeric value representing the identity
 			number of the security modeling namespace that

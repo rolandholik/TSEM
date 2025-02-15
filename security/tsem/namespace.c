@@ -48,89 +48,17 @@
 #include "nsmgr.h"
 
 static u64 context_id;
-
-struct context_key {
-	struct list_head list;
-	u64 context_id;
-	u8 key[HASH_MAX_DIGESTSIZE];
-};
-
 DEFINE_MUTEX(context_id_mutex);
-LIST_HEAD(context_id_list);
 
-static void remove_task_key(u64 context_id)
-{
-	struct context_key *entry, *tmp_entry;
-
-	list_for_each_entry_safe(entry, tmp_entry, &context_id_list, list) {
-		if (context_id == entry->context_id) {
-			list_del(&entry->list);
-			kfree(entry);
-			break;
-		}
-	}
-}
-
-static int generate_task_key(const char *keystr, u64 context_id,
-			     struct tsem_task *t_ttask,
-			     struct tsem_task *p_ttask)
-{
-	int retn;
-	bool found_key, valid_key = false;
-	unsigned int size = tsem_digestsize();
-	struct context_key *entry;
-
-	while (!valid_key) {
-		get_random_bytes(t_ttask->task_key, size);
-		retn = tsem_ns_event_key(t_ttask->task_key, keystr,
-					 p_ttask->task_key);
-		if (retn)
-			goto done;
-
-		if (list_empty(&context_id_list))
-			break;
-
-		found_key = false;
-		list_for_each_entry(entry, &context_id_list, list) {
-			if (!memcmp(entry->key, p_ttask->task_key, size)) {
-				found_key = true;
-				break;
-			}
-		}
-		if (!found_key)
-			valid_key = true;
-	}
-
-	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
-	if (!entry) {
-		retn = -ENOMEM;
-		goto done;
-	}
-
-	entry->context_id = context_id;
-	memcpy(entry->key, p_ttask->task_key, size);
-	list_add_tail(&entry->list, &context_id_list);
-	retn = 0;
-
- done:
-	return retn;
-}
-
-static struct tsem_external *allocate_external(u64 context_id,
-					       const char *keystr)
+static struct tsem_external *allocate_external(u64 context_id)
 {
 	int retn = -ENOMEM;
 	char bufr[20 + 1];
 	struct tsem_external *external;
-	struct tsem_task *t_ttask = tsem_task(current);
 	struct tsem_task *p_ttask = tsem_task(current->real_parent);
 
 	external = kzalloc(sizeof(*external), GFP_KERNEL);
 	if (!external)
-		goto done;
-
-	retn = generate_task_key(keystr, context_id, t_ttask, p_ttask);
-	if (retn)
 		goto done;
 
 	spin_lock_init(&external->export_lock);
@@ -148,10 +76,7 @@ static struct tsem_external *allocate_external(u64 context_id,
 
  done:
 	if (retn) {
-		memset(t_ttask->task_key, '\0', tsem_digestsize());
-		memset(p_ttask->task_key, '\0', tsem_digestsize());
 		kfree(external);
-		remove_task_key(context_id);
 		external = ERR_PTR(retn);
 	} else
 		p_ttask->tma_for_ns = context_id;
@@ -228,10 +153,6 @@ static void wq_put(struct work_struct *work)
 	}
 
 	if (ctx->external) {
-		mutex_lock(&context_id_mutex);
-		remove_task_key(ctx->id);
-		mutex_unlock(&context_id_mutex);
-
 		securityfs_remove(ctx->external->dentry);
 		tsem_export_magazine_free(ctx->external);
 		kfree(ctx->external);
@@ -272,41 +193,6 @@ void tsem_ns_put(struct tsem_context *ctx)
 	kref_put(&ctx->kref, ns_free);
 }
 
-/**
- * tsem_ns_event_key() - Generate TMA authentication key.
- * @task_key: A pointer to the buffer containing the task identification
- *	      key that was randomly generated for the modeling domain.
- * @keystr: A pointer to the buffer containing the TMA authentication key
- *	    in ASCII hexadecimal form.
- *
- * This function generates the authentication key that will be used
- * to validate a call by a TMA to set the trust status of the process.
- *
- * Return: This function returns 0 if the key was properly generated
- *	   or a negative value if a hashing error occurred.
- */
-int tsem_ns_event_key(u8 *task_key, const char *keystr, u8 *key)
-{
-	bool retn;
-	u8 tma_key[HASH_MAX_DIGESTSIZE];
-	SHASH_DESC_ON_STACK(shash, tfm);
-
-	retn = hex2bin(tma_key, keystr, tsem_digestsize());
-	if (retn)
-		return -EINVAL;
-
-	shash->tfm = tsem_digest();
-	retn = crypto_shash_init(shash);
-	if (retn)
-		return retn;
-
-	retn = crypto_shash_update(shash, task_key, tsem_digestsize());
-	if (retn)
-		return retn;
-
-	return crypto_shash_finup(shash, tma_key, tsem_digestsize(), key);
-}
-
 static struct crypto_shash *configure_digest(const char *digest,
 					     char **digestname,
 					     u8 *zero_digest)
@@ -342,9 +228,6 @@ static struct crypto_shash *configure_digest(const char *digest,
  * @ns:     The enumeration type that specifies whether the security
  *	    event descriptions should reference the initial user
  *	    namespace or the current user namespace.
- * @key:    A pointer to a null-terminated buffer containing the key
- *	    that will be used to authenticate the TMA's ability to set
- *	    the trust status of a process.
  * @cache_size: The number of entries to be implemented in the
  *		atomic allocation magazines for the security modeling
  *		namespace being created.
@@ -365,8 +248,8 @@ static struct crypto_shash *configure_digest(const char *digest,
  *	   a negative error value on error.
  */
 int tsem_ns_create(const enum tsem_control_type type, const char *digest,
-		   const enum tsem_ns_reference ns, const char *key,
-		   unsigned int cache_size, const struct tsem_context_ops *ops)
+		   const enum tsem_ns_reference ns, unsigned int cache_size,
+		   const struct tsem_context_ops *ops)
 {
 	u8 zero_digest[HASH_MAX_DIGESTSIZE];
 	char *use_digest;
@@ -399,12 +282,7 @@ int tsem_ns_create(const enum tsem_control_type type, const char *digest,
 		new_ctx->model = model;
 	}
 	if (type == TSEM_CONTROL_EXTERNAL) {
-		if (crypto_shash_digestsize(tfm)*2 != strlen(key)) {
-			retn = -EINVAL;
-			goto done;
-		}
-
-		new_ctx->external = allocate_external(new_id, key);
+		new_ctx->external = allocate_external(new_id);
 		if (IS_ERR(new_ctx->external)) {
 			retn = PTR_ERR(new_ctx->external);
 			new_ctx->external = NULL;
@@ -457,8 +335,6 @@ int tsem_ns_create(const enum tsem_control_type type, const char *digest,
 
  done:
 	if (retn) {
-		if (type != TSEM_CONTROL_EXPORT)
-			remove_task_key(new_id);
 		crypto_free_shash(tfm);
 		tsem_event_magazine_free(new_ctx);
 		kfree(use_digest);
