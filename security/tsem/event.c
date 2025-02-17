@@ -114,6 +114,40 @@ static int register_inode_create(struct inode *dir, u64 instance,
 	return 0;
 }
 
+static char *_escape_path(char *path)
+{
+	char *p, *pn, *new_path;
+	unsigned int cnt = 0;
+
+	if (!strchr(path, '"'))
+		return path;
+
+	p = path;
+	while (strchr(p, '"')) {
+		++p;
+		++cnt;
+	}
+
+	new_path = kzalloc(strlen(path) + cnt + 1, GFP_KERNEL);
+	if (!path)
+		return NULL;
+
+	p = path;
+	pn = new_path;
+	while (*p) {
+		if (*p == '"') {
+			*pn++ = '\\';
+			*pn = '"';
+		} else
+			*pn = *p;
+		++p;
+		++pn;
+	}
+
+	kfree(path);
+	return new_path;
+}
+
 static char *_substitute_pids(struct super_block *sb, char *path, char *bufr)
 {
 	char *p, *start, *new_path, pid[13];
@@ -223,11 +257,12 @@ static int get_root(struct dentry *dentry, struct tsem_path *path)
 		if (IS_ERR(path->pathname)) {
 			retn = PTR_ERR(path->pathname);
 			path->pathname = NULL;
+			goto done;
 		} else {
 			strscpy(path->pathname, p, size);
 			strcat(path->pathname, ":/");
 		}
-		goto done;
+		goto escape;
 	}
 
 	p = dentry_path_raw(dentry, pathbuffer, PATH_MAX);
@@ -240,6 +275,13 @@ static int get_root(struct dentry *dentry, struct tsem_path *path)
 		p = _substitute_pids(dentry->d_sb, p, pathbuffer);
 
 	path->pathname = kstrdup(p, GFP_KERNEL);
+	if (!path->pathname) {
+		retn = -ENOMEM;
+		goto done;
+	}
+
+ escape:
+	path->pathname = _escape_path(path->pathname);
 	if (!path->pathname)
 		retn = -ENOMEM;
 
@@ -271,6 +313,10 @@ static char *get_path(const struct path *path)
 	if (!retpath)
 		retn = -ENOMEM;
 
+	retpath = _escape_path(retpath);
+	if (!retpath)
+		retn = -ENOMEM;
+
 	if (pathbuffer)
 		__putname(pathbuffer);
 	if (retn)
@@ -298,6 +344,10 @@ static char *get_path_dentry(const struct dentry *dentry)
 		retpath = kstrdup(pathname, GFP_KERNEL);
 	else
 		retpath = kstrdup(dentry->d_name.name, GFP_KERNEL);
+	if (!retpath)
+		retn = -ENOMEM;
+
+	retpath = _escape_path(retpath);
 	if (!retpath)
 		retn = -ENOMEM;
 
