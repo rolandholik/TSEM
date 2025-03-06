@@ -549,6 +549,7 @@ static int tsem_task_alloc(struct task_struct *new, unsigned long flags)
 	int retn;
 	struct tsem_event *ep;
 
+	tsem_task(new)->tnum = tsem_task(current)->tnum;
 	tsem_task(new)->context = tsem_task(current)->context;
 
 	ep = tsem_event_allocate(TSEM_TASK_ALLOC, NOLOCK);
