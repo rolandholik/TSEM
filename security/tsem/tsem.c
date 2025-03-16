@@ -443,7 +443,6 @@ static int tsem_file_ioctl(struct file *file, unsigned int cmd,
 		return -ENOMEM;
 
 	ep->CELL.file.cmd = cmd;
-	ep->CELL.file.arg = arg;
 	ep->CELL.file.in.file = file;
 	ep->CELL.file.in.pseudo_file = pseudo_filesystem(file_inode(file));
 
@@ -463,7 +462,6 @@ static int tsem_file_ioctl_compat(struct file *file, unsigned int cmd,
 		return -ENOMEM;
 
 	ep->CELL.file.cmd = cmd;
-	ep->CELL.file.arg = arg;
 	ep->CELL.file.in.file = file;
 	ep->CELL.file.in.pseudo_file = pseudo_filesystem(file_inode(file));
 
