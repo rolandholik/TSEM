@@ -28,6 +28,7 @@ static const bool event_handlers[TSEM_EVENT_CNT] = {
 	[TSEM_FILE_OPEN] = true,
 	[TSEM_MMAP_FILE] = true,
 	[TSEM_FILE_IOCTL] = true,
+	[TSEM_FILE_IOCTL_COMPAT] = true,
 	[TSEM_FILE_LOCK] = true,
 	[TSEM_FILE_FCNTL] = true,
 	[TSEM_FILE_RECEIVE] = true,

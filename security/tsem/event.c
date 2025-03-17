@@ -1567,6 +1567,7 @@ static void event_free(struct tsem_event *ep)
 	case TSEM_FILE_OPEN:
 	case TSEM_BPRM_COMMITTED_CREDS:
 	case TSEM_FILE_IOCTL:
+	case TSEM_FILE_IOCTL_COMPAT:
 	case TSEM_FILE_LOCK:
 	case TSEM_FILE_FCNTL:
 	case TSEM_FILE_RECEIVE:
@@ -1712,6 +1713,7 @@ int tsem_event_generate(struct tsem_event *ep)
 	case TSEM_FILE_OPEN:
 	case TSEM_BPRM_COMMITTED_CREDS:
 	case TSEM_FILE_IOCTL:
+	case TSEM_FILE_IOCTL_COMPAT:
 	case TSEM_FILE_LOCK:
 	case TSEM_FILE_FCNTL:
 	case TSEM_FILE_RECEIVE:
