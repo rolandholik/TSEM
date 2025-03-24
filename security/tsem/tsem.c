@@ -544,7 +544,6 @@ static int tsem_file_truncate(struct file *file)
 
 static int tsem_task_alloc(struct task_struct *new, unsigned long flags)
 {
-	int retn;
 	struct tsem_event *ep;
 
 	tsem_task(new)->tnum = tsem_task(current)->tnum;
