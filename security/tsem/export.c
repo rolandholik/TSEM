@@ -148,16 +148,15 @@ static struct export_event *allocate_export(bool locked)
 	return NULL;
 }
 
-static void trigger_event(struct tsem_context *ctx)
+static inline void trigger_event(struct tsem_context *ctx)
 {
-	ctx->external->have_event = true;
 	wake_up_interruptible(&ctx->external->wq);
 }
 
 int tsem_export_show(struct seq_file *sf, void *v)
 {
 	struct export_event *exp = NULL;
-	struct tsem_context *ctx = tsem_context(current);
+	struct tsem_context *ctx = tsem_tma_context(current);
 
 	if (!ctx->id && !ctx->external)
 		return -ENODATA;
@@ -167,6 +166,7 @@ int tsem_export_show(struct seq_file *sf, void *v)
 		exp = list_first_entry(&ctx->external->export_list,
 				       struct export_event, list);
 		list_del(&exp->list);
+		--ctx->external->event_cnt;
 	}
 	spin_unlock(&ctx->external->export_lock);
 
@@ -240,6 +240,7 @@ int tsem_export_event(struct tsem_event *ep)
 
 	spin_lock(&ctx->external->export_lock);
 	list_add_tail(&exp->list, &ctx->external->export_list);
+	++ctx->external->event_cnt;
 	spin_unlock(&ctx->external->export_lock);
 
 	if (ctx->external->export_only || ep->locked) {
@@ -296,6 +297,7 @@ int tsem_export_action(enum tsem_event_type event, bool locked)
 
 	spin_lock(&ctx->external->export_lock);
 	list_add_tail(&exp->list, &ctx->external->export_list);
+	++ctx->external->event_cnt;
 	spin_unlock(&ctx->external->export_lock);
 
 	trigger_event(ctx);
@@ -327,6 +329,7 @@ int tsem_export_aggregate(void)
 
 	spin_lock(&ctx->external->export_lock);
 	list_add_tail(&exp->list, &ctx->external->export_list);
+	++ctx->external->event_cnt;
 	spin_unlock(&ctx->external->export_lock);
 
 	trigger_event(ctx);

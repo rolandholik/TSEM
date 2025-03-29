@@ -55,7 +55,6 @@ static struct tsem_external *allocate_external(u64 context_id)
 	int retn = -ENOMEM;
 	char bufr[20 + 1];
 	struct tsem_external *external;
-	struct tsem_task *p_ttask = tsem_task(current->real_parent);
 
 	external = kzalloc(sizeof(*external), GFP_KERNEL);
 	if (!external)
@@ -78,8 +77,7 @@ static struct tsem_external *allocate_external(u64 context_id)
 	if (retn) {
 		kfree(external);
 		external = ERR_PTR(retn);
-	} else
-		p_ttask->tma_for_ns = context_id;
+	}
 
 	return external;
 }
@@ -312,7 +310,6 @@ int tsem_ns_create(const enum tsem_control_type type, const char *digest,
 
 
 	kref_init(&new_ctx->kref);
-
 	new_ctx->id = new_id;
 	new_ctx->tfm = tfm;
 	new_ctx->ops = ops;
@@ -354,6 +351,7 @@ int tsem_ns_create(const enum tsem_control_type type, const char *digest,
 			else
 				retn = tsk->context->ops->model_init();
 		}
+		tsem_task(current->real_parent)->tma_context = new_ctx;
 	}
 
 	mutex_unlock(&context_id_mutex);

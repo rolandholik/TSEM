@@ -92,13 +92,11 @@ static const char * const control_arguments[] = {
 
 static bool can_access_fs(void)
 {
-	struct tsem_context *ctx = tsem_context(current);
-
-	if (ctx->external)
+	if (!tsem_tma_context(current))
 		return false;
 	if (capable(CAP_MAC_ADMIN))
 		return true;
-	if (ctx->sealed)
+	if (tsem_tma_context(current)->sealed)
 		return false;
 	return true;
 }
@@ -109,13 +107,12 @@ static int control_COE(unsigned long cmd, pid_t pid, long long tnum)
 	int retn = -ESRCH;
 	struct task_struct *COE;
 	struct tsem_task *task;
-	struct tsem_task *tma = tsem_task(current);
 
 	rcu_read_lock();
 	COE = find_task_by_vpid(pid);
 	if (COE != NULL) {
 		task = tsem_task(COE);
-		if (tsem_context(COE)->id != tma->tma_for_ns) {
+		if (tsem_context(COE) != tsem_tma_context(current)) {
 			retn = -EINVAL;
 			goto done;
 		}
@@ -1836,17 +1833,21 @@ static const struct file_operations aggregate_ops = {
 
 static __poll_t export_poll(struct file *file, struct poll_table_struct *wait)
 {
-	struct tsem_context *ctx = tsem_context(current);
+	unsigned int event_cnt;
+
+	struct tsem_context *ctx = tsem_tma_context(current);
 
 	if (!ctx->external)
 		return -ENOENT;
 
 	poll_wait(file, &ctx->external->wq, wait);
 
-	if (ctx->external->have_event) {
-		ctx->external->have_event = false;
+	spin_lock(&ctx->external->export_lock);
+	event_cnt = ctx->external->event_cnt;
+	spin_unlock(&ctx->external->export_lock);
+
+	if (event_cnt)
 		return EPOLLIN | EPOLLRDNORM;
-	}
 	return 0;
 }
 

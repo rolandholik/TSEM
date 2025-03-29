@@ -423,8 +423,10 @@ enum tsem_inode_state {
 /**
  * struct tsem_task - TSEM task control structure.
  * @tnum: The serial number of the task, incremented for each new task.
- * @tma_for_ns: The context identity number of the namespace that
- *		the task has control over if any.
+ * @tma_context: A pointer to the description of the security modeling
+ *		 namespace that the task has started.  This will be
+ *		 a NULL pointer value if the process has not initiated
+ *		 a new security modeling namespace.
  * @instance: The instance number of the task.  The global task
  *	      instance number is incremented each time the
  *	      bprm_committed_creds handler is invoked to compute the
@@ -477,13 +479,13 @@ enum tsem_inode_state {
  */
 struct tsem_task {
 	u64 tnum;
-	u64 tma_for_ns;
 	u64 instance;
 	u64 p_instance;
 	enum tsem_task_trust trust_status;
 	u8 task_id[HASH_MAX_DIGESTSIZE];
 	u8 p_task_id[HASH_MAX_DIGESTSIZE];
 	struct tsem_context *context;
+	struct tsem_context *tma_context;
 	void *private;
 };
 
@@ -944,7 +946,7 @@ struct tsem_external {
 	spinlock_t export_lock;
 	struct list_head export_list;
 	struct dentry *dentry;
-	bool have_event;
+	unsigned int event_cnt;
 	wait_queue_head_t wq;
 
 	unsigned int magazine_size;
@@ -2406,6 +2408,11 @@ static inline bool tsem_task_untrusted(struct task_struct *task)
 static inline struct tsem_context *tsem_context(struct task_struct *task)
 {
 	return tsem_task(task)->context;
+}
+
+static inline struct tsem_context *tsem_tma_context(struct task_struct *task)
+{
+	return tsem_task(task)->tma_context;
 }
 
 static inline struct tsem_model *tsem_model(struct task_struct *task)
