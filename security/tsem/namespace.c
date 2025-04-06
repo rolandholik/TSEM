@@ -352,6 +352,7 @@ int tsem_ns_create(const enum tsem_control_type type, const char *digest,
 				retn = tsk->context->ops->model_init();
 		}
 		tsem_task(current->real_parent)->tma_context = new_ctx;
+		kref_get(&new_ctx->kref);
 	}
 
 	mutex_unlock(&context_id_mutex);

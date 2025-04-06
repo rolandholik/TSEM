@@ -577,6 +577,8 @@ static void tsem_task_free(struct task_struct *task)
 
 	if (ctx->id)
 		tsem_ns_put(ctx);
+	else if (unlikely(tsem_tma_context(task)))
+		tsem_ns_put(tsem_tma_context(task));
 }
 
 static int tsem_task_kill(struct task_struct *target,
