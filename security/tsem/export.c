@@ -158,6 +158,11 @@ int tsem_export_show(struct seq_file *sf, void *v)
 	struct export_event *exp = NULL;
 	struct tsem_context *ctx = tsem_tma_context(current);
 
+	if (!ctx) {
+		ctx = tsem_context(current);
+		if (ctx->id)
+			return -ENODATA;
+	}
 	if (!ctx->external)
 		return -ENODATA;
 

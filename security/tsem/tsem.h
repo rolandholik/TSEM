@@ -2412,10 +2412,7 @@ static inline struct tsem_context *tsem_context(struct task_struct *task)
 
 static inline struct tsem_context *tsem_tma_context(struct task_struct *task)
 {
-	if (tsem_context(task)->id)
-		return tsem_task(task)->tma_context;
-	else
-		return tsem_context(task);
+	return tsem_task(task)->tma_context;
 }
 
 static inline struct tsem_model *tsem_model(struct task_struct *task)

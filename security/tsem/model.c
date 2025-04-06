@@ -332,7 +332,7 @@ void tsem_model_compute_state(void)
 	unsigned int lp, count, pt_count = 0;
 	struct list_head *end;
 	struct tsem_event_point *end_point, *entry, **points = NULL;
-	struct tsem_model *model = tsem_model(current);
+	struct tsem_model *model = tsem_tma_context(current)->model;
 	SHASH_DESC_ON_STACK(shash, tfm);
 
 	shash->tfm = tsem_digest();
