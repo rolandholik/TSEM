@@ -1773,13 +1773,19 @@ static const struct file_operations measurement_ops = {
 
 static int id_show(struct seq_file *c, void *event)
 {
-	seq_printf(c, "%llu\n", tsem_context(current)->id);
+	seq_printf(c, "%llu\n", tsem_tma_context(current)->id);
 	return 0;
 }
 
 static int id_open(struct inode *inode, struct file *file)
 {
-	if (tsem_context(current)->sealed)
+	struct tsem_context *ctx = tsem_tma_context(current);
+
+	if (!ctx)
+		return -ENOENT;
+	if (!capable(CAP_MAC_ADMIN))
+		return -EPERM;
+	if (ctx->sealed)
 		return -EACCES;
 	return single_open(file, &id_show, NULL);
 }
