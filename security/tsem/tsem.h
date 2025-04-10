@@ -2420,6 +2420,11 @@ static inline struct tsem_model *tsem_model(struct task_struct *task)
 	return tsem_task(task)->context->model;
 }
 
+static inline struct tsem_model *tsem_tma_model(struct task_struct *task)
+{
+	return tsem_tma_context(task)->model;
+}
+
 static inline struct tsem_inode *tsem_inode(struct inode *inode)
 {
 	return inode->i_security + tsem_blob_sizes.lbs_inode;
