@@ -174,10 +174,9 @@ static int generate_pseudonym(char *pathname, u8 *pseudonym)
 	return retn;
 }
 
-static struct tsem_event_point *have_point(u8 *point)
+static struct tsem_event_point *have_point(struct tsem_context *ctx, u8 *point)
 {
 	struct tsem_event_point *entry, *retn = NULL;
-	struct tsem_context *ctx = tsem_context(current);
 	struct tsem_model *model = ctx->model;
 
 	spin_lock(&model->point_lock);
@@ -193,11 +192,12 @@ static struct tsem_event_point *have_point(u8 *point)
 	return retn;
 }
 
-static struct tsem_event_point *add_event_point(u8 *point, bool valid,
+static struct tsem_event_point *add_event_point(struct tsem_context *ctx,
+						u8 *point, bool valid,
 						bool locked)
 {
 	struct tsem_event_point *entry;
-	struct tsem_model *model = tsem_model(current);
+	struct tsem_model *model = ctx->model;
 
 	entry = alloc_event_point(model, locked);
 	if (!entry)
@@ -467,7 +467,7 @@ int tsem_model_event(struct tsem_event *ep)
 	if (retn)
 		return retn;
 
-	point = have_point(ep->mapping);
+	point = have_point(ctx, ep->mapping);
 	if (point) {
 		++point->count;
 		if (!point->valid)
@@ -481,13 +481,13 @@ int tsem_model_event(struct tsem_event *ep)
 
 	retn = -ENOMEM;
 	if (ctx->sealed) {
-		point = add_event_point(ep->mapping, false, ep->locked);
+		point = add_event_point(ctx, ep->mapping, false, ep->locked);
 		if (point) {
 			retn = add_forensic_point(ep);
 			task->trust_status = TSEM_TASK_UNTRUSTED;
 		}
 	} else {
-		point = add_event_point(ep->mapping, true, ep->locked);
+		point = add_event_point(ctx, ep->mapping, true, ep->locked);
 		if (point)
 			retn = add_trajectory_point(ep);
 	}
@@ -513,12 +513,12 @@ int tsem_model_load_point(u8 *point)
 {
 	int retn = -ENOMEM;
 	struct tsem_event *ep;
-	struct tsem_context *ctx = tsem_context(current);
+	struct tsem_context *ctx = tsem_tma_context(current);
 
-	if (have_point(point))
+	if (have_point(ctx, point))
 		return 0;
 
-	if (!add_event_point(point, true, false))
+	if (!add_event_point(ctx, point, true, false))
 		return retn;
 
 	if (!ctx->model->have_aggregate) {
@@ -557,7 +557,7 @@ int tsem_model_load_point(u8 *point)
 int tsem_model_load_pseudonym(u8 *mapping)
 {
 	struct pseudonym *psp = NULL;
-	struct tsem_model *model = tsem_model(current);
+	struct tsem_model *model = tsem_tma_model(current);
 
 	psp = kzalloc(sizeof(*psp), GFP_KERNEL);
 	if (!psp)
@@ -580,7 +580,7 @@ int tsem_model_load_pseudonym(u8 *mapping)
  */
 void tsem_model_load_base(u8 *mapping)
 {
-	struct tsem_model *model = tsem_model(current);
+	struct tsem_model *model = tsem_tma_model(current);
 
 	memcpy(model->base, mapping, tsem_digestsize());
 }
