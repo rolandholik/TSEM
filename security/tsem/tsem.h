@@ -2351,6 +2351,7 @@ extern int tsem_model_init(void);
 extern void tsem_model_compute_state(void);
 extern void tsem_model_magazine_free(struct tsem_model *model);
 extern int tsem_model_cache_init(struct tsem_model *model, size_t size);
+extern int tsem_model_add_violation(struct tsem_event *ep);
 
 extern void tsem_ns_put(struct tsem_context *ctx);
 extern int tsem_ns_create(const enum tsem_control_type type,

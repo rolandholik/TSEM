@@ -329,10 +329,14 @@ static int untrusted_task(struct tsem_event *ep)
 		retn = tsem_export_action(ep->event, ep->locked);
 		if (retn)
 			return retn;
-	} else
+	} else {
 		pr_warn("Untrusted event %s: model_ns=%lld, comm=%s, pid=%d\n",
 			tsem_names[ep->event], ctx->id, current->comm,
 			task_pid_nr(current));
+		retn = tsem_model_add_violation(ep);
+		if (retn)
+			return retn;
+	}
 
 	if (ctx->actions[ep->event] == TSEM_ACTION_EPERM)
 		retn = -EPERM;

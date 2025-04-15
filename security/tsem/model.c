@@ -586,6 +586,49 @@ void tsem_model_load_base(u8 *mapping)
 }
 
 /**
+ * tesm_model_add_violation() - Add a security violation to a model.
+ * @ep: A pointer to the security event description that describes
+ *	the violating event.
+ *
+ * This function is called to register and retain the descriptions
+ * of security events that are generated when a process is in
+ * untrusted status.
+ */
+int tsem_model_add_violation(struct tsem_event *ep)
+{
+	int retn;
+	struct tsem_event_point *point;
+	struct tsem_context *ctx = tsem_context(current);
+
+	if (likely(!tsem_context(current)->ops->event_init))
+		retn = tsem_event_init(ep);
+	else
+		retn = tsem_context(current)->ops->event_init(ep);
+	if (ep->terminate_event)
+		return retn;
+
+	if (likely(!ctx->ops->map))
+		retn = tsem_map_event(ep);
+	else
+		retn = ctx->ops->map(ep);
+	if (retn)
+		return retn;
+
+	point = have_point(ctx, ep->mapping);
+	if (point) {
+		++point->count;
+		return 0;
+	}
+
+	point = add_event_point(ctx, ep->mapping, false, ep->locked);
+	if (IS_ERR(point))
+		return PTR_ERR(point);
+
+	++point->count;
+	return add_forensic_point(ep);
+}
+
+/**
  * tesm_model_init() - Add the hardware aggregate to a TSEM model.
  *
  * This function adds the hardware aggregate value for an internally
