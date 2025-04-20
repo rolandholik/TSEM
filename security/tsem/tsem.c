@@ -326,7 +326,7 @@ static int untrusted_task(struct tsem_event *ep)
 	struct tsem_context *ctx = tsem_context(current);
 
 	if (ctx->external) {
-		retn = tsem_export_action(ep->event, ep->locked);
+		retn = tsem_export_violation(ep);
 		if (retn)
 			return retn;
 	} else {

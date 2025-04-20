@@ -2362,7 +2362,7 @@ extern int tsem_ns_export_root(unsigned int magazine_size);
 
 extern int tsem_export_show(struct seq_file *m, void *v);
 extern int tsem_export_event(struct tsem_event *ep);
-extern int tsem_export_action(enum tsem_event_type event, bool locked);
+extern int tsem_export_violation(struct tsem_event *ep);
 extern int tsem_export_aggregate(void);
 extern int tsem_export_magazine_allocate(struct tsem_external *ext,
 					 size_t size);

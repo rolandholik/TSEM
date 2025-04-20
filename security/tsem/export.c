@@ -203,12 +203,8 @@ int tsem_export_show(struct seq_file *sf, void *v)
 
 	case LOG_EVENT:
 		tsem_fs_show_key(sf, "type", "}, ", "%s", "log");
-		tsem_fs_show_field(sf, "log");
-		tsem_fs_show_key(sf, "process", ",", "%s", exp->u.action.comm);
-		tsem_fs_show_key(sf, "event", ",", "%s",
-				 tsem_names[exp->u.action.type]);
-		tsem_fs_show_key(sf, "action", "}", "%s",
-				 tsem_actions[exp->u.action.action]);
+		tsem_fs_show_trajectory(sf, exp->u.ep);
+		tsem_event_put(exp->u.ep);
 		break;
 	}
 	seq_puts(sf, "}\n");
@@ -271,34 +267,38 @@ int tsem_export_event(struct tsem_event *ep)
 }
 
 /**
- * tsem_export_action() - Exports the action taken to a security violation.
- * @event: The TSEM event type number for which the log event is being
- *	   generated.
- * @locked: A boolean flag indicating whether or not the security hook
- *	    being reported on is called in atomic context.
+ * tsem_export_action() - Exports the description of an untrusted event.
+ * @ep: A pointer to the event description structure.
  *
  * This function queues for export a description of an event that
- * was being disciplined.
+ * occurred while a process was running in an untrusted state.
  *
  * Return: This function returns 0 if the export was successful or
  *	   an error value if it was not.
  */
-int tsem_export_action(enum tsem_event_type event, bool locked)
+int tsem_export_violation(struct tsem_event *ep)
 {
+	int retn;
 	struct tsem_context *ctx = tsem_context(current);
 	struct export_event *exp;
 
-	exp = allocate_export(locked);
+	exp = allocate_export(ep->locked);
 	if (!exp) {
 		pr_warn("tsem: domain %llu failed export allocation.\n",
 			ctx->id);
 		return -ENOMEM;
 	}
 
+	if (likely(!tsem_context(current)->ops->event_init))
+		retn = tsem_event_init(ep);
+	else
+		retn = tsem_context(current)->ops->event_init(ep);
+	if (ep->terminate_event || retn < 0)
+		return retn;
+
 	exp->type = LOG_EVENT;
-	exp->u.action.type = event;
-	exp->u.action.action = ctx->actions[event];
-	strscpy(exp->u.action.comm, current->comm, sizeof(exp->u.action.comm));
+	exp->u.ep = ep;
+	tsem_event_get(ep);
 
 	spin_lock(&ctx->external->export_lock);
 	list_add_tail(&exp->list, &ctx->external->export_list);
@@ -306,7 +306,6 @@ int tsem_export_action(enum tsem_event_type event, bool locked)
 	spin_unlock(&ctx->external->export_lock);
 
 	trigger_event(ctx);
-
 	return 0;
 }
 
