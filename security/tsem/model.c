@@ -174,14 +174,15 @@ static int generate_pseudonym(char *pathname, u8 *pseudonym)
 	return retn;
 }
 
-static struct tsem_event_point *have_point(struct tsem_context *ctx, u8 *point)
+static struct tsem_event_point *have_coefficient(struct tsem_context *ctx,
+						 u8 *cf)
 {
 	struct tsem_event_point *entry, *retn = NULL;
 	struct tsem_model *model = ctx->model;
 
 	spin_lock(&model->point_lock);
 	list_for_each_entry(entry, &model->point_list, list) {
-		if (!memcmp(entry->point, point, tsem_digestsize())) {
+		if (!memcmp(entry->point, cf, tsem_digestsize())) {
 			retn = entry;
 			goto done;
 		}
@@ -192,7 +193,7 @@ static struct tsem_event_point *have_point(struct tsem_context *ctx, u8 *point)
 	return retn;
 }
 
-static struct tsem_event_point *add_event_point(struct tsem_context *ctx,
+static struct tsem_event_point *add_coefficient(struct tsem_context *ctx,
 						u8 *point, bool valid,
 						bool locked)
 {
@@ -214,7 +215,7 @@ static struct tsem_event_point *add_event_point(struct tsem_context *ctx,
 	return entry;
 }
 
-static int add_trajectory_point(struct tsem_event *ep)
+static void add_trajectory_event(struct tsem_event *ep)
 {
 	struct tsem_model *model = tsem_model(current);
 
@@ -224,11 +225,9 @@ static int add_trajectory_point(struct tsem_event *ep)
 	spin_lock(&model->trajectory_lock);
 	list_add_tail(&ep->list, &model->trajectory_list);
 	spin_unlock(&model->trajectory_lock);
-
-	return 0;
 }
 
-static int add_forensic_point(struct tsem_event *ep)
+static void add_forensic_event(struct tsem_event *ep)
 {
 	struct tsem_model *model = tsem_model(current);
 
@@ -238,8 +237,6 @@ static int add_forensic_point(struct tsem_event *ep)
 	spin_lock(&model->forensics_lock);
 	list_add_tail(&ep->list, &model->forensics_list);
 	spin_unlock(&model->forensics_lock);
-
-	return 0;
 }
 
 static int get_host_measurement(u8 *id, u8 *digest)
@@ -467,7 +464,7 @@ int tsem_model_event(struct tsem_event *ep)
 	if (retn)
 		return retn;
 
-	point = have_point(ctx, ep->mapping);
+	point = have_coefficient(ctx, ep->mapping);
 	if (point) {
 		++point->count;
 		if (!point->valid)
@@ -479,21 +476,20 @@ int tsem_model_event(struct tsem_event *ep)
 	if (retn)
 		return retn;
 
-	retn = -ENOMEM;
 	if (ctx->sealed) {
-		point = add_event_point(ctx, ep->mapping, false, ep->locked);
-		if (point) {
-			retn = add_forensic_point(ep);
-			task->trust_status = TSEM_TASK_UNTRUSTED;
-		}
+		point = add_coefficient(ctx, ep->mapping, false, ep->locked);
+		add_forensic_event(ep);
+		task->trust_status = TSEM_TASK_UNTRUSTED;
 	} else {
-		point = add_event_point(ctx, ep->mapping, true, ep->locked);
-		if (point)
-			retn = add_trajectory_point(ep);
+		point = add_coefficient(ctx, ep->mapping, true, ep->locked);
+		add_trajectory_event(ep);
 	}
 
-	if (!retn)
+	if (IS_ERR(point))
+		retn = PTR_ERR(point);
+	else
 		++point->count;
+
 	return retn;
 }
 
@@ -515,10 +511,10 @@ int tsem_model_load_point(u8 *point)
 	struct tsem_event *ep;
 	struct tsem_context *ctx = tsem_tma_context(current);
 
-	if (have_point(ctx, point))
+	if (have_coefficient(ctx, point))
 		return 0;
 
-	if (!add_event_point(ctx, point, true, false))
+	if (!add_coefficient(ctx, point, true, false))
 		return retn;
 
 	if (!ctx->model->have_aggregate) {
@@ -614,18 +610,19 @@ int tsem_model_add_violation(struct tsem_event *ep)
 	if (retn)
 		return retn;
 
-	point = have_point(ctx, ep->mapping);
+	point = have_coefficient(ctx, ep->mapping);
 	if (point) {
 		++point->count;
 		return 0;
 	}
 
-	point = add_event_point(ctx, ep->mapping, false, ep->locked);
+	point = add_coefficient(ctx, ep->mapping, false, ep->locked);
 	if (IS_ERR(point))
 		return PTR_ERR(point);
 
 	++point->count;
-	return add_forensic_point(ep);
+	add_forensic_event(ep);
+	return 0;
 }
 
 /**
