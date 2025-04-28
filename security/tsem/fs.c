@@ -92,10 +92,10 @@ static const char * const control_arguments[] = {
 
 static bool can_access_fs(void)
 {
+	if (capable(CAP_MAC_ADMIN) && !tsem_context(current)->id)
+		return true;
 	if (!tsem_tma_context(current))
 		return false;
-	if (capable(CAP_MAC_ADMIN))
-		return true;
 	if (tsem_tma_context(current)->sealed)
 		return false;
 	return true;

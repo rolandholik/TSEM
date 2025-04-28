@@ -2733,6 +2733,7 @@ static int __init tsem_init(void)
 	security_add_hooks(tsem_hooks, ARRAY_SIZE(tsem_hooks), &tsem_lsmid);
 
 	tsk->context = ctx;
+	tsk->tma_context = ctx;
 	kref_init(&ctx->kref);
 	kref_get(&ctx->kref);
 
