@@ -80,9 +80,9 @@ enum tsem_action_type tsem_root_actions[TSEM_EVENT_CNT] = {
 };
 
 static struct tsem_model root_model = {
-	.point_lock = __SPIN_LOCK_INITIALIZER(root_model.point_lock),
-	.point_list = LIST_HEAD_INIT(root_model.point_list),
-	.point_end_mutex = __MUTEX_INITIALIZER(root_model.point_end_mutex),
+	.coeff_lock = __SPIN_LOCK_INITIALIZER(root_model.coeff_lock),
+	.coeff_list = LIST_HEAD_INIT(root_model.coeff_list),
+	.coeff_end_mutex = __MUTEX_INITIALIZER(root_model.coeff_end_mutex),
 
 	.trajectory_lock = __SPIN_LOCK_INITIALIZER(root_model.trajectory_lock),
 	.trajectory_list = LIST_HEAD_INIT(root_model.trajectory_list),
@@ -2723,6 +2723,7 @@ late_initcall(set_ready);
 static int __init tsem_init(void)
 {
 	int retn;
+	unsigned int lp;
 	char *msg;
 	struct tsem_task *tsk = tsem_task(current);
 	struct tsem_context *ctx = &root_context;
@@ -2745,6 +2746,8 @@ static int __init tsem_init(void)
 
 	root_context.ops = &tsem_model0_ops;
 	root_context.model = &root_model;
+	for (lp = 0; lp <= 255; ++lp)
+		INIT_LIST_HEAD(&root_model.coeff_lists[lp]);
 
 	retn = tsem_event_cache_init();
 	if (retn)

@@ -1308,14 +1308,14 @@ static void *trajectory_count_start(struct seq_file *c, loff_t *pos)
 	struct list_head *end;
 	struct tsem_model *model = tsem_tma_model(current);
 
-	spin_lock(&model->point_lock);
-	end = model->point_list.prev;
-	spin_unlock(&model->point_lock);
+	spin_lock(&model->coeff_lock);
+	end = model->coeff_list.prev;
+	spin_unlock(&model->coeff_lock);
 
-	mutex_lock(&model->point_end_mutex);
-	model->point_end = end;
+	mutex_lock(&model->coeff_end_mutex);
+	model->coeff_end = end;
 
-	return seq_list_start(&model->point_list, *pos);
+	return seq_list_start(&model->coeff_list, *pos);
 }
 
 static void *trajectory_count_next(struct seq_file *c, void *p, loff_t *pos)
@@ -1323,22 +1323,22 @@ static void *trajectory_count_next(struct seq_file *c, void *p, loff_t *pos)
 	struct list_head *next = ((struct list_head *) p)->next;
 	struct tsem_model *model = tsem_tma_model(current);
 
-	if (!model->point_end) {
+	if (!model->coeff_end) {
 		++*pos;
 		return NULL;
 	}
 
-	if (next == model->point_end)
-		model->point_end = NULL;
+	if (next == model->coeff_end)
+		model->coeff_end = NULL;
 
-	return seq_list_next(p, &model->point_list, pos);
+	return seq_list_next(p, &model->coeff_list, pos);
 }
 
 static void trajectory_count_stop(struct seq_file *c, void *pos)
 {
 	struct tsem_model *model = tsem_tma_model(current);
 
-	mutex_unlock(&model->point_end_mutex);
+	mutex_unlock(&model->coeff_end_mutex);
 }
 
 static int trajectory_count_show(struct seq_file *c, void *point)
@@ -1379,14 +1379,14 @@ static void *trajectory_point_start(struct seq_file *c, loff_t *pos)
 	struct list_head *end;
 	struct tsem_model *model = tsem_tma_model(current);
 
-	spin_lock(&model->point_lock);
-	end = model->point_list.prev;
-	spin_unlock(&model->point_lock);
+	spin_lock(&model->coeff_lock);
+	end = model->coeff_list.prev;
+	spin_unlock(&model->coeff_lock);
 
-	mutex_lock(&model->point_end_mutex);
-	model->point_end = end;
+	mutex_lock(&model->coeff_end_mutex);
+	model->coeff_end = end;
 
-	return seq_list_start(&model->point_list, *pos);
+	return seq_list_start(&model->coeff_list, *pos);
 }
 
 static void *trajectory_point_next(struct seq_file *c, void *p, loff_t *pos)
@@ -1394,22 +1394,22 @@ static void *trajectory_point_next(struct seq_file *c, void *p, loff_t *pos)
 	struct list_head *next = ((struct list_head *) p)->next;
 	struct tsem_model *model = tsem_tma_model(current);
 
-	if (!model->point_end) {
+	if (!model->coeff_end) {
 		++*pos;
 		return NULL;
 	}
 
-	if (next == model->point_end)
-		model->point_end = NULL;
+	if (next == model->coeff_end)
+		model->coeff_end = NULL;
 
-	return seq_list_next(p, &model->point_list, pos);
+	return seq_list_next(p, &model->coeff_list, pos);
 }
 
 static void trajectory_point_stop(struct seq_file *c, void *pos)
 {
 	struct tsem_model *model = tsem_tma_model(current);
 
-	mutex_unlock(&model->point_end_mutex);
+	mutex_unlock(&model->coeff_end_mutex);
 }
 
 static int trajectory_point_show(struct seq_file *c, void *point)
@@ -1607,14 +1607,14 @@ static void *forensics_point_start(struct seq_file *c, loff_t *pos)
 	struct list_head *end;
 	struct tsem_model *model = tsem_tma_model(current);
 
-	spin_lock(&model->point_lock);
-	end = model->point_list.prev;
-	spin_unlock(&model->point_lock);
+	spin_lock(&model->coeff_lock);
+	end = model->coeff_list.prev;
+	spin_unlock(&model->coeff_lock);
 
-	mutex_lock(&model->point_end_mutex);
-	model->point_end = end;
+	mutex_lock(&model->coeff_end_mutex);
+	model->coeff_end = end;
 
-	return seq_list_start(&model->point_list, *pos);
+	return seq_list_start(&model->coeff_list, *pos);
 }
 
 static void *forensics_point_next(struct seq_file *c, void *p, loff_t *pos)
@@ -1622,22 +1622,22 @@ static void *forensics_point_next(struct seq_file *c, void *p, loff_t *pos)
 	struct list_head *next = ((struct list_head *) p)->next;
 	struct tsem_model *model = tsem_tma_model(current);
 
-	if (!model->point_end) {
+	if (!model->coeff_end) {
 		++*pos;
 		return NULL;
 	}
 
-	if (next == model->point_end)
-		model->point_end = NULL;
+	if (next == model->coeff_end)
+		model->coeff_end = NULL;
 
-	return seq_list_next(p, &model->point_list, pos);
+	return seq_list_next(p, &model->coeff_list, pos);
 }
 
 static void forensics_point_stop(struct seq_file *c, void *pos)
 {
 	struct tsem_model *model = tsem_tma_model(current);
 
-	mutex_unlock(&model->point_end_mutex);
+	mutex_unlock(&model->coeff_end_mutex);
 }
 
 static int forensics_point_show(struct seq_file *c, void *point)
@@ -1678,14 +1678,14 @@ static void *forensics_count_start(struct seq_file *c, loff_t *pos)
 	struct list_head *end;
 	struct tsem_model *model = tsem_tma_model(current);
 
-	spin_lock(&model->point_lock);
-	end = model->point_list.prev;
-	spin_unlock(&model->point_lock);
+	spin_lock(&model->coeff_lock);
+	end = model->coeff_list.prev;
+	spin_unlock(&model->coeff_lock);
 
-	mutex_lock(&model->point_end_mutex);
-	model->point_end = end;
+	mutex_lock(&model->coeff_end_mutex);
+	model->coeff_end = end;
 
-	return seq_list_start(&model->point_list, *pos);
+	return seq_list_start(&model->coeff_list, *pos);
 }
 
 static void *forensics_count_next(struct seq_file *c, void *p, loff_t *pos)
@@ -1693,22 +1693,22 @@ static void *forensics_count_next(struct seq_file *c, void *p, loff_t *pos)
 	struct list_head *next = ((struct list_head *) p)->next;
 	struct tsem_model *model = tsem_tma_model(current);
 
-	if (!model->point_end) {
+	if (!model->coeff_end) {
 		++*pos;
 		return NULL;
 	}
 
-	if (next == model->point_end)
-		model->point_end = NULL;
+	if (next == model->coeff_end)
+		model->coeff_end = NULL;
 
-	return seq_list_next(p, &model->point_list, pos);
+	return seq_list_next(p, &model->coeff_list, pos);
 }
 
 static void forensics_count_stop(struct seq_file *c, void *pos)
 {
 	struct tsem_model *model = tsem_tma_model(current);
 
-	mutex_unlock(&model->point_end_mutex);
+	mutex_unlock(&model->coeff_end_mutex);
 }
 
 static int forensics_count_show(struct seq_file *c, void *point)

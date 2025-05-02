@@ -174,14 +174,21 @@ static int generate_pseudonym(char *pathname, u8 *pseudonym)
 	return retn;
 }
 
+static inline struct list_head *select_list(struct tsem_context *ctx, u8 *cf)
+{
+	return &ctx->model->coeff_lists[cf[0]];
+}
+
 static struct tsem_event_point *have_coefficient(struct tsem_context *ctx,
 						 u8 *cf)
 {
+	struct list_head *slot_list;
 	struct tsem_event_point *entry, *retn = NULL;
 	struct tsem_model *model = ctx->model;
 
-	spin_lock(&model->point_lock);
-	list_for_each_entry(entry, &model->point_list, list) {
+	spin_lock(&model->coeff_lock);
+	slot_list = select_list(ctx, cf);
+	list_for_each_entry(entry, slot_list, lookup_list) {
 		if (!memcmp(entry->point, cf, tsem_digestsize())) {
 			retn = entry;
 			goto done;
@@ -189,7 +196,7 @@ static struct tsem_event_point *have_coefficient(struct tsem_context *ctx,
 	}
 
  done:
-	spin_unlock(&model->point_lock);
+	spin_unlock(&model->coeff_lock);
 	return retn;
 }
 
@@ -207,10 +214,12 @@ static struct tsem_event_point *add_coefficient(struct tsem_context *ctx,
 	entry->valid = valid;
 	memcpy(entry->point, point, tsem_digestsize());
 
-	spin_lock(&model->point_lock);
-	++model->point_count;
-	list_add_tail(&entry->list, &model->point_list);
-	spin_unlock(&model->point_lock);
+	spin_lock(&model->coeff_lock);
+	++model->coeff_count;
+	list_add_tail(&entry->list, &model->coeff_list);
+	list_add_tail(&entry->lookup_list, select_list(ctx, point));
+	spin_unlock(&model->coeff_lock);
+
 
 	return entry;
 }
@@ -326,9 +335,9 @@ void tsem_model_compute_state(void)
 {
 	u8 state[HASH_MAX_DIGESTSIZE];
 	int retn;
-	unsigned int lp, count, pt_count = 0;
+	unsigned int lp, count, cf_count = 0;
 	struct list_head *end;
-	struct tsem_event_point *end_point, *entry, **points = NULL;
+	struct tsem_event_point *end_coeff, *entry, **coefficients = NULL;
 	struct tsem_model *model = tsem_tma_context(current)->model;
 	SHASH_DESC_ON_STACK(shash, tfm);
 
@@ -350,28 +359,26 @@ void tsem_model_compute_state(void)
 	if (retn)
 		goto done;
 
-	spin_lock(&model->point_lock);
-	end = model->point_list.prev;
-	count = model->point_count;
-	spin_unlock(&model->point_lock);
+	spin_lock(&model->coeff_lock);
+	end = model->coeff_list.prev;
+	count = model->coeff_count;
+	spin_unlock(&model->coeff_lock);
 
-	points = vmalloc(sizeof(*points) * count);
-	if (!points) {
+	coefficients = vmalloc(sizeof(*coefficients) * count);
+	if (!coefficients)
 		retn = -ENOMEM;
-		goto done;
-	}
 
-	end_point = container_of(end, struct tsem_event_point, list);
-	list_for_each_entry(entry, &model->point_list, list) {
-		points[pt_count++] = entry;
-		if (end_point == entry)
+	end_coeff = container_of(end, struct tsem_event_point, list);
+	list_for_each_entry(entry, &model->coeff_list, list) {
+		coefficients[cf_count++] = entry;
+		if (end_coeff == entry)
 			break;
 	}
-	sort(points, count, sizeof(*points), state_sort, NULL);
+	sort(coefficients, count, sizeof(*coefficients), state_sort, NULL);
 
 	memcpy(model->state, state, tsem_digestsize());
-	for (lp = 0; lp < pt_count; ++lp) {
-		entry = points[lp];
+	for (lp = 0; lp < cf_count; ++lp) {
+		entry = coefficients[lp];
 
 		if (get_host_measurement(entry->point, state))
 			goto done;
@@ -390,7 +397,7 @@ void tsem_model_compute_state(void)
 	if (retn)
 		memset(model->state, '\0', tsem_digestsize());
 
-	vfree(points);
+	vfree(coefficients);
 }
 
 /**
@@ -669,15 +676,18 @@ int tsem_model_init(void)
  */
 struct tsem_model *tsem_model_allocate(size_t size)
 {
+	unsigned int lp;
 	struct tsem_model *model = NULL;
 
 	model = kzalloc(sizeof(*model), GFP_KERNEL);
 	if (!model)
 		return NULL;
 
-	spin_lock_init(&model->point_lock);
-	INIT_LIST_HEAD(&model->point_list);
-	mutex_init(&model->point_end_mutex);
+	spin_lock_init(&model->coeff_lock);
+	INIT_LIST_HEAD(&model->coeff_list);
+	for (lp = 0; lp <= 255; ++lp)
+		INIT_LIST_HEAD(&model->coeff_lists[lp]);
+	mutex_init(&model->coeff_end_mutex);
 
 	spin_lock_init(&model->trajectory_lock);
 	INIT_LIST_HEAD(&model->trajectory_list);
@@ -713,7 +723,7 @@ void tsem_model_free(struct tsem_context *ctx)
 	struct pseudonym *sentry, *tmp_sentry;
 	struct tsem_model *model = ctx->model;
 
-	list_for_each_entry_safe(ep, tmp_ep, &model->point_list, list) {
+	list_for_each_entry_safe(ep, tmp_ep, &model->coeff_list, list) {
 		list_del(&ep->list);
 		kmem_cache_free(point_cachep, ep);
 	}

@@ -835,11 +835,12 @@ struct tsem_model {
 	u8 measurement[HASH_MAX_DIGESTSIZE];
 	u8 state[HASH_MAX_DIGESTSIZE];
 
-	spinlock_t point_lock;
-	struct list_head point_list;
-	struct mutex point_end_mutex;
-	struct list_head *point_end;
-	unsigned int point_count;
+	spinlock_t coeff_lock;
+	struct list_head coeff_list;
+	struct mutex coeff_end_mutex;
+	struct list_head *coeff_end;
+	struct list_head coeff_lists[256];
+	unsigned int coeff_count;
 
 	spinlock_t trajectory_lock;
 	struct list_head trajectory_list;
@@ -2172,6 +2173,7 @@ struct tsem_event {
  */
 struct tsem_event_point {
 	struct list_head list;
+	struct list_head lookup_list;
 	bool valid;
 	u64 count;
 	u8 point[HASH_MAX_DIGESTSIZE];
