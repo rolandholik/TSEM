@@ -35,6 +35,7 @@ static struct dentry *tsem_dir;
 static struct dentry *control;
 static struct dentry *id;
 static struct dentry *aggregate;
+static struct dentry *export;
 static struct dentry *internal_tma;
 static struct dentry *model;
 static struct dentry *forensics;
@@ -45,7 +46,6 @@ static struct dentry *trajectory_counts;
 static struct dentry *trajectory_coeff;
 static struct dentry *measurement;
 static struct dentry *state;
-static struct dentry *external_tma;
 
 struct control_commands {
 	char *cmd;
@@ -1871,34 +1871,6 @@ static const struct file_operations export_ops = {
 };
 
 /**
- * tsem_fs_create_external() - Create an external TMA update file.
- * @id: A pointer to the ASCII representation of the modeling domain
- *      that the export file is being created for.
- *
- * This function is used to create a pseudo-file that will output security
- * event descriptions for a namespace.  This routine will create the
- * following file:
- *
- * /sys/kernel/security/tsem/ExternalTMA/N
- *
- * Where N is replaced with the security model context identifier.
- *
- * Return: If creation of the update file is successful a pointer to the
- *	   dentry of the file is returned.  If an error was encountered
- *	   the pointer with an encoded code will be returned.
- */
-struct dentry *tsem_fs_create_external(const char *name)
-{
-	struct dentry *dentry;
-
-	dentry = securityfs_create_file(name, 0400, external_tma, NULL,
-					&export_ops);
-	if (!IS_ERR(dentry))
-		tsem_inode(dentry->d_inode)->status = TSEM_INODE_CONTROL_PLANE;
-	return dentry;
-}
-
-/**
  * tsem_fs_show_trajectory() - Generate the output of a security event.
  * @sf: A pointer to the seq_file structure to which output will
  *      be set.
@@ -2228,6 +2200,11 @@ int __init tsem_fs_init(void)
 	if (!_init_inode(aggregate))
 		goto err;
 
+	export = securityfs_create_file("export", 0400, tsem_dir, NULL,
+					&export_ops);
+	if (!_init_inode(export))
+		goto err;
+
 	internal_tma = securityfs_create_dir("internal_tma", tsem_dir);
 	if (!_init_inode(internal_tma))
 		goto err;
@@ -2281,10 +2258,6 @@ int __init tsem_fs_init(void)
 	if (!_init_inode(state))
 		goto err;
 
-	external_tma = securityfs_create_dir("external_tma", tsem_dir);
-	if (!_init_inode(external_tma))
-		goto err;
-
 	retn = 0;
 
  done:
@@ -2295,6 +2268,7 @@ int __init tsem_fs_init(void)
 	securityfs_remove(control);
 	securityfs_remove(id);
 	securityfs_remove(aggregate);
+	securityfs_remove(export);
 	securityfs_remove(internal_tma);
 	securityfs_remove(model);
 	securityfs_remove(forensics);
@@ -2305,7 +2279,6 @@ int __init tsem_fs_init(void)
 	securityfs_remove(trajectory_coeff);
 	securityfs_remove(measurement);
 	securityfs_remove(state);
-	securityfs_remove(external_tma);
 
 	return retn;
 }

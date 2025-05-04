@@ -53,7 +53,6 @@ DEFINE_MUTEX(context_id_mutex);
 static struct tsem_external *allocate_external(u64 context_id)
 {
 	int retn = -ENOMEM;
-	char bufr[20 + 1];
 	struct tsem_external *external;
 
 	external = kzalloc(sizeof(*external), GFP_KERNEL);
@@ -64,14 +63,7 @@ static struct tsem_external *allocate_external(u64 context_id)
 	INIT_LIST_HEAD(&external->export_list);
 
 	init_waitqueue_head(&external->wq);
-
-	scnprintf(bufr, sizeof(bufr), "%llu", context_id);
-	external->dentry = tsem_fs_create_external(bufr);
-	if (IS_ERR(external->dentry)) {
-		retn = PTR_ERR(external->dentry);
-		external->dentry = NULL;
-	} else
-		retn = 0;
+	retn = 0;
 
  done:
 	if (retn) {
@@ -85,7 +77,6 @@ static struct tsem_external *allocate_external(u64 context_id)
 static struct tsem_external *allocate_export(u64 context_id)
 {
 	int retn = -ENOMEM;
-	char bufr[20 + 1];
 	struct tsem_external *external;
 
 	external = kzalloc(sizeof(*external), GFP_KERNEL);
@@ -96,14 +87,7 @@ static struct tsem_external *allocate_export(u64 context_id)
 	INIT_LIST_HEAD(&external->export_list);
 
 	init_waitqueue_head(&external->wq);
-
-	scnprintf(bufr, sizeof(bufr), "%llu", context_id);
-	external->dentry = tsem_fs_create_external(bufr);
-	if (IS_ERR(external->dentry)) {
-		retn = PTR_ERR(external->dentry);
-		external->dentry = NULL;
-	} else
-		retn = 0;
+	retn = 0;
 
  done:
 	if (retn) {
@@ -151,7 +135,6 @@ static void wq_put(struct work_struct *work)
 	}
 
 	if (ctx->external) {
-		securityfs_remove(ctx->external->dentry);
 		tsem_export_magazine_free(ctx->external);
 		kfree(ctx->external);
 	} else

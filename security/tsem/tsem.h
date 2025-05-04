@@ -876,11 +876,6 @@ struct tsem_model {
  *		 linked by this list is the struct export_event
  *		 structure that is private to the export.c compilation
  *		 unit.
- * @dentry: A pointer to the dentry describing the pseudo-file in the
- *	    /sys/kernel/security/tsem/external_tma directory that is
- *	    being used to export security event descriptions to the
- *	    external trust orchestrator for the security modeling
- *	    namespace.
  * @have_event: A flag variable to indicate that is work queued
  *		on the export pseudo-file for the security modeling
  *		namespace.
@@ -946,7 +941,6 @@ struct tsem_external {
 
 	spinlock_t export_lock;
 	struct list_head export_list;
-	struct dentry *dentry;
 	unsigned int event_cnt;
 	wait_queue_head_t wq;
 
@@ -2334,7 +2328,6 @@ extern const struct tsem_context_ops tsem_model0_ops;
  * The following section of the file contains the definitions for the
  * externally visible functions in each of the TSEM compilation units.
  */
-extern struct dentry *tsem_fs_create_external(const char *name);
 extern void tsem_fs_show_trajectory(struct seq_file *c, struct tsem_event *ep);
 extern void tsem_fs_show_field(struct seq_file *c, const char *field);
 extern void tsem_fs_show_key(struct seq_file *c, char *term, char *key,
