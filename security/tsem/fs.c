@@ -1343,9 +1343,9 @@ static void trajectory_count_stop(struct seq_file *c, void *pos)
 
 static int trajectory_count_show(struct seq_file *c, void *point)
 {
-	struct tsem_event_point *pt;
+	struct tsem_coefficient *pt;
 
-	pt = list_entry(point, struct tsem_event_point, list);
+	pt = list_entry(point, struct tsem_coefficient, list);
 	if (!pt->valid)
 		return 0;
 
@@ -1414,9 +1414,9 @@ static void trajectory_point_stop(struct seq_file *c, void *pos)
 
 static int trajectory_point_show(struct seq_file *c, void *point)
 {
-	struct tsem_event_point *pt;
+	struct tsem_coefficient *pt;
 
-	pt = list_entry(point, struct tsem_event_point, list);
+	pt = list_entry(point, struct tsem_coefficient, list);
 	if (!pt->valid)
 		return 0;
 
@@ -1642,9 +1642,9 @@ static void forensics_point_stop(struct seq_file *c, void *pos)
 
 static int forensics_point_show(struct seq_file *c, void *point)
 {
-	struct tsem_event_point *pt;
+	struct tsem_coefficient *pt;
 
-	pt = list_entry(point, struct tsem_event_point, list);
+	pt = list_entry(point, struct tsem_coefficient, list);
 	if (pt->valid)
 		return 0;
 
@@ -1713,9 +1713,9 @@ static void forensics_count_stop(struct seq_file *c, void *pos)
 
 static int forensics_count_show(struct seq_file *c, void *point)
 {
-	struct tsem_event_point *pt;
+	struct tsem_coefficient *pt;
 
-	pt = list_entry(point, struct tsem_event_point, list);
+	pt = list_entry(point, struct tsem_coefficient, list);
 	if (pt->valid)
 		return 0;
 

@@ -50,7 +50,7 @@ static struct kmem_cache *point_cachep;
 
 static void refill_point_magazine(struct work_struct *work)
 {
-	struct tsem_event_point *tep;
+	struct tsem_coefficient *tep;
 	struct tsem_work *ws;
 
 	ws = container_of(work, struct tsem_work, work);
@@ -74,11 +74,11 @@ static void refill_point_magazine(struct work_struct *work)
 	spin_unlock(&ws->u.model->magazine_lock);
 }
 
-static struct tsem_event_point *alloc_event_point(struct tsem_model *model,
+static struct tsem_coefficient *alloc_event_point(struct tsem_model *model,
 						  bool locked)
 {
 	unsigned int index;
-	struct tsem_event_point *tep = NULL;
+	struct tsem_coefficient *tep = NULL;
 
 	if (!locked)
 		return kmem_cache_zalloc(point_cachep, GFP_KERNEL);
@@ -179,11 +179,11 @@ static inline struct list_head *select_list(struct tsem_context *ctx, u8 *cf)
 	return &ctx->model->coeff_lists[cf[0]];
 }
 
-static struct tsem_event_point *have_coefficient(struct tsem_context *ctx,
+static struct tsem_coefficient *have_coefficient(struct tsem_context *ctx,
 						 u8 *cf)
 {
 	struct list_head *slot_list;
-	struct tsem_event_point *entry, *retn = NULL;
+	struct tsem_coefficient *entry, *retn = NULL;
 	struct tsem_model *model = ctx->model;
 
 	spin_lock(&model->coeff_lock);
@@ -200,11 +200,11 @@ static struct tsem_event_point *have_coefficient(struct tsem_context *ctx,
 	return retn;
 }
 
-static struct tsem_event_point *add_coefficient(struct tsem_context *ctx,
+static struct tsem_coefficient *add_coefficient(struct tsem_context *ctx,
 						u8 *point, bool valid,
 						bool locked)
 {
-	struct tsem_event_point *entry;
+	struct tsem_coefficient *entry;
 	struct tsem_model *model = ctx->model;
 
 	entry = alloc_event_point(model, locked);
@@ -306,10 +306,10 @@ static int update_events_measurement(struct tsem_event *ep)
 static int state_sort(const void *a, const void *b)
 {
 	unsigned int lp, retn = 0;
-	struct tsem_event_point *ap, *bp;
+	struct tsem_coefficient *ap, *bp;
 
-	ap = *((struct tsem_event_point **) a);
-	bp = *((struct tsem_event_point **) b);
+	ap = *((struct tsem_coefficient **) a);
+	bp = *((struct tsem_coefficient **) b);
 
 	for (lp = 0; lp < tsem_digestsize(); ++lp) {
 		if (ap->point[lp] == bp->point[lp])
@@ -337,7 +337,7 @@ void tsem_model_compute_state(void)
 	int retn;
 	unsigned int lp, count, cf_count = 0;
 	struct list_head *end;
-	struct tsem_event_point *end_coeff, *entry, **coefficients = NULL;
+	struct tsem_coefficient *end_coeff, *entry, **coefficients = NULL;
 	struct tsem_model *model = tsem_tma_context(current)->model;
 	SHASH_DESC_ON_STACK(shash, tfm);
 
@@ -368,7 +368,7 @@ void tsem_model_compute_state(void)
 	if (!coefficients)
 		retn = -ENOMEM;
 
-	end_coeff = container_of(end, struct tsem_event_point, list);
+	end_coeff = container_of(end, struct tsem_coefficient, list);
 	list_for_each_entry(entry, &model->coeff_list, list) {
 		coefficients[cf_count++] = entry;
 		if (end_coeff == entry)
@@ -460,7 +460,7 @@ int tsem_model_has_pseudonym(struct tsem_inode *tsip, char *pathname)
 int tsem_model_event(struct tsem_event *ep)
 {
 	int retn;
-	struct tsem_event_point *point;
+	struct tsem_coefficient *point;
 	struct tsem_task *task = tsem_task(current);
 	struct tsem_context *ctx = task->context;
 
@@ -600,7 +600,7 @@ void tsem_model_load_base(u8 *mapping)
 int tsem_model_add_violation(struct tsem_event *ep)
 {
 	int retn;
-	struct tsem_event_point *point;
+	struct tsem_coefficient *point;
 	struct tsem_context *ctx = tsem_context(current);
 
 	if (likely(!tsem_context(current)->ops->event_init))
@@ -718,7 +718,7 @@ struct tsem_model *tsem_model_allocate(size_t size)
  */
 void tsem_model_free(struct tsem_context *ctx)
 {
-	struct tsem_event_point *ep, *tmp_ep;
+	struct tsem_coefficient *ep, *tmp_ep;
 	struct tsem_event *tentry, *tmp_tentry;
 	struct pseudonym *sentry, *tmp_sentry;
 	struct tsem_model *model = ctx->model;
@@ -778,7 +778,7 @@ void tsem_model_magazine_free(struct tsem_model *model)
  *	  model.
  *
  * This function is called by the primary TSEM initialization function
- * and sets up the cache that will be used to dispense tsem_event_point
+ * and sets up the cache that will be used to dispense tsem_coefficient
  * structures for security events that are called in atomic context.
  *
  * Return: This function returns a value of zero on success and a negative
@@ -786,8 +786,8 @@ void tsem_model_magazine_free(struct tsem_model *model)
  */
 int __init tsem_model_cache_init(struct tsem_model *model, size_t size)
 {
-	point_cachep = kmem_cache_create("tsem_event_point_cache",
-					 sizeof(struct tsem_event_point), 0,
+	point_cachep = kmem_cache_create("tsem_coefficient_cache",
+					 sizeof(struct tsem_coefficient), 0,
 					 SLAB_PANIC, 0);
 	if (!point_cachep)
 		return -ENOMEM;
