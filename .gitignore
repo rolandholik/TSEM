@@ -112,6 +112,9 @@ modules.order
 !.mailmap
 !.rustfmt.toml
 
+# For seamless vagrant compilation
+!.config
+
 #
 # Generated include files
 #
